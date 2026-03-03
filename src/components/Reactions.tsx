@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { EmojiPicker } from 'frimousse'
+
 
 // --- types ---
 
@@ -15,6 +17,8 @@ interface FlyingEmoji {
   endY: number
   playerName: string
   targetPlayerId?: string
+  isImage?: boolean  // New field to indicate if this is an image reaction
+  imageUrl?: string  // New field to store image URL
   // seeded randomness params (computed at creation for deterministic replay)
   seed: number
   flightDuration: number // 500-900ms
@@ -31,6 +35,8 @@ interface SettledEmoji {
   offsetY: number
   rotation: number
   createdAt: number
+  isImage?: boolean  // New field to indicate if this is an image reaction
+  imageUrl?: string  // New field to store image URL
 }
 
 const REACTIONS = [
@@ -46,44 +52,152 @@ const REACTIONS = [
   { emoji: '💩', label: 'Poop' },
 ]
 
-interface ReactionsProps {
-  onReact: (emoji: string) => void
+const RECENT_EMOJIS_KEY = 'planning_poker_recent_emojis'
+const MAX_RECENT = 8
+const DEFAULT_EMOJIS = ['👍', '❤️', '🎉']
+
+function useRecentEmojis() {
+  const [recentEmojis, setRecentEmojis] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return DEFAULT_EMOJIS
+    try {
+      const stored = localStorage.getItem(RECENT_EMOJIS_KEY)
+      return stored ? JSON.parse(stored) : DEFAULT_EMOJIS
+    } catch {
+      return DEFAULT_EMOJIS
+    }
+  })
+
+  const addRecentEmoji = useCallback((emoji: string) => {
+    setRecentEmojis(prev => {
+      const filtered = prev.filter(e => e !== emoji)
+      const next = [emoji, ...filtered].slice(0, MAX_RECENT)
+      localStorage.setItem(RECENT_EMOJIS_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
+  return { recentEmojis, addRecentEmoji }
 }
 
-export function ReactionPicker({ onReact }: ReactionsProps) {
-  const [showPicker, setShowPicker] = useState(false)
+interface ReactionsProps {
+  onReact: (emoji: string, isImage?: boolean, imageUrl?: string) => void
+  onMouseLeave?: () => void
+}
+
+export function ReactionPicker({ onReact, onMouseLeave }: ReactionsProps) {
+  const { recentEmojis, addRecentEmoji } = useRecentEmojis()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  const handleReact = (emoji: string, isImage?: boolean, imageUrl?: string) => {
+    if (!isImage) addRecentEmoji(emoji)
+    onReact(emoji, isImage, imageUrl)
+    setPickerOpen(false)
+  }
+
+  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const imageUrl = event.target?.result as string
+        if (imageUrl) {
+          onReact(imageUrl, true, imageUrl)
+          setPickerOpen(false)
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+  }
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => setShowPicker(!showPicker)}
-        className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-full text-white font-semibold shadow-lg transition-all transform hover:scale-105"
-      >
-        🎭 React
-      </button>
-
-      <AnimatePresence>
-        {showPicker && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 10 }}
-            className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-gray-800 rounded-xl p-3 shadow-2xl border border-gray-700 z-50"
+    <div onMouseLeave={onMouseLeave}>
+      {/* Quick-bar */}
+      <div className="flex gap-1 bg-gray-900/95 backdrop-blur-sm rounded-full px-2 py-1 shadow-lg border border-gray-700">
+        {recentEmojis.map((emoji) => (
+          <button
+            key={emoji}
+            onClick={() => handleReact(emoji)}
+            className="w-8 h-8 flex items-center justify-center text-lg hover:bg-gray-700 rounded-full transition-colors"
           >
-            <div className="grid grid-cols-5 gap-2">
-              {REACTIONS.map(({ emoji, label }) => (
-                <button
-                  key={emoji}
-                  onClick={() => {
-                    onReact(emoji)
-                    setShowPicker(false)
+            {emoji}
+          </button>
+        ))}
+        <button
+          onClick={(e) => { e.stopPropagation(); setPickerOpen(v => !v) }}
+          className="w-8 h-8 flex items-center justify-center text-xl font-bold text-white hover:bg-gray-700 rounded-full transition-colors"
+          title="More reactions"
+        >
+          +
+        </button>
+      </div>
+
+      {/* Full emoji picker — absolutely positioned below the quick-bar */}
+      <AnimatePresence>
+        {pickerOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -4 }}
+            transition={{ duration: 0.12 }}
+            className="absolute top-full mt-2 rounded-xl overflow-hidden shadow-2xl border border-gray-700 bg-gray-900"
+            style={{ zIndex: 1000000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <EmojiPicker.Root
+              className="flex flex-col bg-gray-900"
+              style={{ width: 300, height: 340 }}
+              onEmojiSelect={({ emoji }) => handleReact(emoji)}
+            >
+              <EmojiPicker.Search
+                className="mx-2 mt-2 mb-1 px-3 py-1.5 rounded-lg bg-gray-800 text-gray-100 text-sm placeholder-gray-500 outline-none border border-gray-700 focus:border-gray-500"
+                placeholder="Search emoji…"
+              />
+              <EmojiPicker.Viewport className="flex-1 relative">
+                <EmojiPicker.Loading className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">
+                  Loading…
+                </EmojiPicker.Loading>
+                <EmojiPicker.Empty className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">
+                  No emoji found.
+                </EmojiPicker.Empty>
+                <EmojiPicker.List
+                  className="select-none pb-1"
+                  components={{
+                    CategoryHeader: ({ category, ...props }) => (
+                      <div
+                        className="bg-gray-900 px-3 pt-2 pb-1 text-xs font-medium text-gray-500 uppercase tracking-wide"
+                        {...props}
+                      >
+                        {category.label}
+                      </div>
+                    ),
+                    Row: ({ children, ...props }) => (
+                      <div className="px-1.5" {...props}>{children}</div>
+                    ),
+                    Emoji: ({ emoji, ...props }) => (
+                      <button
+                        className="flex size-8 items-center justify-center rounded-md text-xl data-[active]:bg-gray-700 transition-colors"
+                        {...props}
+                      >
+                        {emoji.emoji}
+                      </button>
+                    ),
                   }}
-                  className="w-10 h-10 flex items-center justify-center text-2xl hover:bg-gray-700 rounded-lg transition-colors"
-                  title={label}
-                >
-                  {emoji}
-                </button>
-              ))}
+                />
+              </EmojiPicker.Viewport>
+            </EmojiPicker.Root>
+
+            <div className="px-2 pb-2">
+              <label className="flex items-center justify-center gap-1.5 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-300 text-sm cursor-pointer transition-colors">
+                📷 Image
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
           </motion.div>
         )}
@@ -102,10 +216,10 @@ function seededRandom(seed: number) {
 }
 
 // --- physics constants ---
-const GRAVITY = 1800       // px/s², simulates downward pull
-const BOUNCE_DAMPING = 0.4 // velocity multiplied by this after each bounce
-const MAX_BOUNCES = 2
-const SETTLE_FADE_DURATION = 300 // ms
+const GRAVITY = 1400       // px/s², slightly higher gravity for more realistic falling
+const BOUNCE_DAMPING = 0.55 // velocity multiplied by this after each bounce (more bounce for realistic feel)
+const MAX_BOUNCES = 3      // Allow more bounces for better realism
+const SETTLE_FADE_DURATION = 400 // ms, increased for smoother fade
 const MAX_SETTLED_PER_CARD = 5
 
 // --- single flying emoji rendered with rAF physics ---
@@ -120,14 +234,14 @@ function FlyingEmojiElement({ reaction, onComplete }: {
     const el = elRef.current
     if (!el) return
 
-    // measure the emoji element size so we can center it on targets
+    // measure the emoji/image element size so we can center it on targets
     const emojiRect = el.getBoundingClientRect()
-    const halfW = emojiRect.width / 2 || 15
-    const halfH = emojiRect.height / 2 || 15
+    const halfW = emojiRect.width / 2 || (reaction.isImage ? 25 : 15) // Larger size for images
+    const halfH = emojiRect.height / 2 || (reaction.isImage ? 25 : 15)
 
     const rand = seededRandom(reaction.seed)
-    const flightMs = reaction.flightDuration
-    const arcH = reaction.arcHeight
+    const flightMs = reaction.flightDuration * 1.5 // Slower flight speed
+    const arcH = reaction.arcHeight * 1.2 // Higher arc for more natural look
     const spin = reaction.spinDirection
 
     // re-read the actual target card position right now (not the stale creation-time value)
@@ -151,26 +265,26 @@ function FlyingEmojiElement({ reaction, onComplete }: {
     const sy = reaction.startY - halfH
 
     // control point: midpoint offset upward by arcHeight, with some horizontal jitter
-    const cx = (sx + ex) / 2 + (rand() - 0.5) * 120
+    const cx = (sx + ex) / 2 + (rand() - 0.5) * 150 // Increased jitter for more natural look
     const cy = Math.min(sy, ey) - arcH
 
-    // flight rotation range
-    const maxFlightRotation = 15 + rand() * 20
+    // flight rotation range - increased for more natural spinning
+    const maxFlightRotation = 20 + rand() * 180 // Much more spinning
 
-    // post-impact state
-    let phase: 'flight' | 'impact' | 'drop' | 'bounce1' | 'bounce2' | 'settle' = 'flight'
-    let impactTime = 0
-    let dropStartY = ey
-    let dropVelocity = 0
-    let bounceCount = 0
-    let bounceBaseY = ey
-    let bounceVelocity = 0
-    let settleStartTime = 0
-    let currentX = ex
-    let currentY = ey
+        // post-impact state
+        let phase: 'flight' | 'impact' | 'drop' | 'bounce1' | 'bounce2' | 'settle' = 'flight'
+        let impactTime = 0
+        let dropStartY = ey
+        let dropVelocity = 0
+        let bounceCount = 0
+        let bounceBaseY = ey
+        let bounceVelocity = 0
+        let settleStartTime = 0
+        let currentX = ex
+        let currentY = ey
 
-    const impactDuration = 80
-    const dropDistance = 12 + rand() * 10
+        const impactDuration = 100 // Longer impact for smoother effect
+        const dropDistance = 15 + rand() * 15 // More varied drop distance
 
     let animId: number
 
@@ -180,18 +294,29 @@ function FlyingEmojiElement({ reaction, onComplete }: {
 
       if (phase === 'flight') {
         const t = Math.min(elapsed / flightMs, 1)
+        // Using a smoother easing function for more natural movement
         const et = t < 0.5
-          ? 2 * t * t
-          : 1 - Math.pow(-2 * t + 2, 2) / 2
+          ? 2 * t * t // Accelerate in first half
+          : 1 - Math.pow(-2 * t + 2, 2) / 2 // Decelerate in second half
 
         const oneMinusT = 1 - et
+        // Quadratic bezier curve for smooth flight path
         const px = oneMinusT * oneMinusT * sx + 2 * oneMinusT * et * cx + et * et * ex
         const py = oneMinusT * oneMinusT * sy + 2 * oneMinusT * et * cy + et * et * ey
 
-        const scale = 0.3 + et * 0.9
-        const rotation = spin * maxFlightRotation * Math.sin(et * Math.PI)
+        // More natural scaling effect
+        const scale = 0.1 + et * 0.9
+        // Continuous spinning during flight - more natural rotation
+        const rotation = spin * (maxFlightRotation * et * 2) // Spin more continuously
 
-        el.style.transform = `translate(${px}px, ${py}px) scale(${scale}) rotate(${rotation}deg)`
+        if (reaction.isImage && reaction.imageUrl) {
+          el.style.transform = `translate(${px}px, ${py}px) scale(${scale}) rotate(${rotation}deg)`
+          el.style.width = '50px'
+          el.style.height = '50px'
+        } else {
+          el.style.transform = `translate(${px}px, ${py}px) scale(${scale}) rotate(${rotation}deg)`
+        }
+        
         el.style.opacity = '1'
 
         currentX = px
@@ -210,68 +335,93 @@ function FlyingEmojiElement({ reaction, onComplete }: {
         let scaleX: number, scaleY: number
         if (it < 0.5) {
           const sq = it * 2
-          scaleX = 1.2 + sq * 0.3
-          scaleY = 1.2 - sq * 0.4
+          scaleX = 1.2 + sq * 0.4
+          scaleY = 1.2 - sq * 0.6
         } else {
           const rs = (it - 0.5) * 2
-          scaleX = 1.5 - rs * 0.4
-          scaleY = 0.8 + rs * 0.3
+          scaleX = 1.6 - rs * 0.6
+          scaleY = 0.6 + rs * 0.4
         }
 
-        const shakeX = (rand() - 0.5) * 4 * (1 - it)
-        const microRotation = (rand() - 0.5) * 10 * (1 - it)
+        const shakeX = (rand() - 0.5) * 6 * (1 - it)
+        const microRotation = (rand() - 0.5) * 20 * (1 - it)
 
-        el.style.transform = `translate(${currentX + shakeX}px, ${currentY}px) scale(${scaleX}, ${scaleY}) rotate(${microRotation}deg)`
+        if (reaction.isImage && reaction.imageUrl) {
+          el.style.transform = `translate(${currentX + shakeX}px, ${currentY}px) scale(${scaleX}, ${scaleY}) rotate(${microRotation}deg)`
+          el.style.width = '50px'
+          el.style.height = '50px'
+        } else {
+          el.style.transform = `translate(${currentX + shakeX}px, ${currentY}px) scale(${scaleX}, ${scaleY}) rotate(${microRotation}deg)`
+        }
 
         if (it >= 1) {
-          phase = 'drop'
-          dropStartY = currentY
-          dropVelocity = 60 + rand() * 40
-        }
-      } else if (phase === 'drop') {
-        const dropElapsed = (elapsed - impactTime - impactDuration) / 1000
-        const dy = dropVelocity * dropElapsed + 0.5 * GRAVITY * dropElapsed * dropElapsed
-        const py = dropStartY + dy
-
-        const driftX = (rand() - 0.5) * 6
-        currentY = py
-
-        el.style.transform = `translate(${currentX + driftX}px, ${py}px) scale(1.1) rotate(${spin * 5}deg)`
-
-        if (dy >= dropDistance) {
           phase = 'bounce1'
-          bounceBaseY = py
-          bounceVelocity = -(Math.sqrt(2 * GRAVITY * dropDistance) * BOUNCE_DAMPING)
           bounceCount = 0
+          // Realistic bounce physics: use the impact momentum to determine bounce height
+          bounceBaseY = currentY
+          // Calculate initial bounce velocity based on the impact energy
+          bounceVelocity = -(60 + rand() * 40) // Stronger bounce for more realistic physics
           settleStartTime = elapsed
         }
       } else if (phase === 'bounce1' || phase === 'bounce2') {
         const bounceElapsed = (elapsed - settleStartTime) / 1000
-        const by = bounceVelocity * bounceElapsed + 0.5 * GRAVITY * bounceElapsed * bounceElapsed
-        const py = bounceBaseY + by
+        // Physics for bounce: apply gravity to the bounce velocity
+        const currentVel = bounceVelocity + GRAVITY * bounceElapsed
+        // Calculate new position using kinematic equation
+        const currentPos = bounceBaseY + bounceVelocity * bounceElapsed + 0.5 * GRAVITY * bounceElapsed * bounceElapsed
 
-        const bounceRot = spin * 8 * Math.sin(bounceElapsed * 12) * (1 - bounceElapsed * 2)
-
-        el.style.transform = `translate(${currentX}px, ${py}px) scale(1.05) rotate(${bounceRot}deg)`
-
-        if (by >= 0 && bounceElapsed > 0.02) {
+        // Check if it has hit the target surface again (currentPos >= ey)
+        if (currentPos >= ey) {
+          // Reset position to target Y (simulate contact with surface)
+          currentY = ey
+          
+          // Apply damping to the velocity (energy loss during impact)
+          bounceVelocity = -currentVel * BOUNCE_DAMPING
+          
           bounceCount++
-          if (bounceCount >= MAX_BOUNCES) {
+          
+          // Check if bounce should end
+          if (Math.abs(bounceVelocity) < 30 || bounceCount >= MAX_BOUNCES) {
             phase = 'settle'
             settleStartTime = elapsed
-            currentY = bounceBaseY
+            currentY = ey // Ensure it stays at the target Y
           } else {
-            phase = 'bounce2'
-            bounceBaseY = py
-            bounceVelocity = bounceVelocity * BOUNCE_DAMPING
+            // Prepare for next bounce
+            bounceBaseY = currentY
             settleStartTime = elapsed
           }
+        } else {
+          // Continue the bounce trajectory
+          currentY = currentPos
+        }
+
+        // Apply rotation during bounce for more realistic movement
+        const bounceRot = spin * 20 * Math.sin(bounceElapsed * 15) * (1 - bounceCount * 0.3)
+
+        if (reaction.isImage && reaction.imageUrl) {
+          el.style.transform = `translate(${currentX}px, ${currentY}px) scale(1.0) rotate(${bounceRot}deg)`
+          el.style.width = '50px'
+          el.style.height = '50px'
+        } else {
+          el.style.transform = `translate(${currentX}px, ${currentY}px) scale(1.0) rotate(${bounceRot}deg)`
+        }
+
+        if (phase === 'bounce1' && bounceCount >= 1) {
+          phase = 'bounce2' // Move to next bounce phase if applicable
+          settleStartTime = elapsed
         }
       } else if (phase === 'settle') {
         const settleElapsed = elapsed - settleStartTime
         const fadeT = Math.min(settleElapsed / SETTLE_FADE_DURATION, 1)
 
-        el.style.transform = `translate(${currentX}px, ${currentY}px) scale(${1.05 - fadeT * 0.15}) rotate(0deg)`
+        if (reaction.isImage && reaction.imageUrl) {
+          el.style.transform = `translate(${currentX}px, ${currentY}px) scale(${1.0 - fadeT * 0.2}) rotate(0deg)`
+          el.style.width = '50px'
+          el.style.height = '50px'
+        } else {
+          el.style.transform = `translate(${currentX}px, ${currentY}px) scale(${1.0 - fadeT * 0.2}) rotate(0deg)`
+        }
+        
         el.style.opacity = String(1 - fadeT * 0.6)
 
         if (fadeT >= 1) {
@@ -281,8 +431,10 @@ function FlyingEmojiElement({ reaction, onComplete }: {
             targetPlayerId: reaction.targetPlayerId || '',
             offsetX: (rand() - 0.5) * 30,
             offsetY: (rand() - 0.5) * 16 + 8,
-            rotation: (rand() - 0.5) * 20,
+            rotation: (rand() - 0.5) * 30, // Increased rotation for settled emojis
             createdAt: Date.now(),
+            isImage: reaction.isImage,
+            imageUrl: reaction.imageUrl,
           }
           onComplete(settledEmoji)
           return
@@ -302,7 +454,7 @@ function FlyingEmojiElement({ reaction, onComplete }: {
   return (
     <div
       ref={elRef}
-      className="absolute text-3xl pointer-events-none will-change-transform"
+      className="absolute pointer-events-none will-change-transform"
       style={{
         left: 0,
         top: 0,
@@ -310,7 +462,15 @@ function FlyingEmojiElement({ reaction, onComplete }: {
         filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.25))',
       }}
     >
-      {reaction.emoji}
+      {reaction.isImage && reaction.imageUrl ? (
+        <img 
+          src={reaction.imageUrl} 
+          alt="Custom reaction" 
+          className="w-12 h-12 object-contain rounded-sm"
+        />
+      ) : (
+        <span className="text-3xl">{reaction.emoji}</span>
+      )}
     </div>
   )
 }
@@ -436,7 +596,7 @@ export function SettledEmojis({ emojis }: { emojis: SettledEmoji[] }) {
             animate={{ opacity: 0.85, scale: 1 }}
             exit={{ opacity: 0, scale: 0.5 }}
             transition={{ duration: 0.3 }}
-            className="absolute text-lg"
+            className="absolute"
             style={{
               left: `calc(50% + ${e.offsetX}px)`,
               top: `calc(100% + ${e.offsetY}px)`,
@@ -444,7 +604,15 @@ export function SettledEmojis({ emojis }: { emojis: SettledEmoji[] }) {
               filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.15))',
             }}
           >
-            {e.emoji}
+            {e.isImage && e.imageUrl ? (
+              <img 
+                src={e.imageUrl} 
+                alt="Custom reaction" 
+                className="w-6 h-6 object-contain rounded-sm"
+              />
+            ) : (
+              <span className="text-lg">{e.emoji}</span>
+            )}
           </motion.div>
         ))}
       </AnimatePresence>

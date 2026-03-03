@@ -1,11 +1,22 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { FlyingReactions, SettledEmojis, type FlyingEmoji, type SettledEmoji, MAX_SETTLED_PER_CARD } from './Reactions'
-import { getAvatar } from '@/lib/avatar'
+import { FlyingReactions, SettledEmojis, ReactionPicker, type FlyingEmoji, type SettledEmoji, MAX_SETTLED_PER_CARD } from './Reactions'
 import type { Player } from '@/types'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
+import {
+  useFloating,
+  useHover,
+  useDismiss,
+  useInteractions,
+  safePolygon,
+  offset,
+  flip,
+  shift,
+  autoUpdate,
+  FloatingPortal,
+} from '@floating-ui/react'
 
 interface PokerTableProps {
   players: Player[]
@@ -18,12 +29,65 @@ interface PokerTableProps {
   gameId: string
 }
 
+// Floating-UI powered hover popover for emoji reactions
+function PlayerPopover({
+  children,
+  onReact,
+  placement = 'top',
+}: {
+  children: React.ReactNode
+  onReact: (emoji: string, isImage?: boolean, imageUrl?: string) => void
+  placement?: 'top' | 'bottom' | 'left' | 'right'
+}) {
+  const [open, setOpen] = useState(false)
+
+  const { refs, floatingStyles, context } = useFloating({
+    open,
+    onOpenChange: setOpen,
+    placement,
+    middleware: [offset(8), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  })
+
+  const hover = useHover(context, {
+    delay: { open: 100, close: 300 },
+    handleClose: safePolygon({ blockPointerEvents: true }),
+  })
+  const dismiss = useDismiss(context)
+  const { getReferenceProps, getFloatingProps } = useInteractions([hover, dismiss])
+
+  return (
+    <div ref={refs.setReference} {...getReferenceProps()}>
+      {children}
+      <FloatingPortal>
+        {open && (
+          <div
+            ref={refs.setFloating}
+            style={{ ...floatingStyles, zIndex: 999999 }}
+            {...getFloatingProps()}
+          >
+            <div className="relative">
+              <ReactionPicker
+                onReact={(emoji, isImage, imageUrl) => {
+                  onReact(emoji, isImage, imageUrl)
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </FloatingPortal>
+    </div>
+  )
+}
+
 // helper: create a FlyingEmoji with randomized physics params targeting a specific card
 function createFlyingEmoji(
   emoji: string,
   playerName: string,
   targetPlayerId: string | undefined,
   targetEl: HTMLElement | null,
+  isImage?: boolean,
+  imageUrl?: string,
 ): FlyingEmoji {
   const cardRect = targetEl?.getBoundingClientRect()
   const endX = cardRect ? cardRect.left + cardRect.width / 2 : window.innerWidth / 2
@@ -51,6 +115,8 @@ function createFlyingEmoji(
     endY,
     playerName,
     targetPlayerId,
+    isImage,
+    imageUrl,
     seed,
     flightDuration: 500 + Math.random() * 400, // 500-900ms
     arcHeight: 80 + Math.random() * 180,        // 80-260px
@@ -72,8 +138,7 @@ export function PokerTable({
   const [flyingReactions, setFlyingReactions] = useState<FlyingEmoji[]>([])
   const [settledEmojis, setSettledEmojis] = useState<Record<string, SettledEmoji[]>>({})
   const [socket, setSocket] = useState<Socket | null>(null)
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
-  
+
   // flying cards from other players
   const [flyingCards, setFlyingCards] = useState<Array<{
     id: string
@@ -84,15 +149,8 @@ export function PokerTable({
     endY: number
   }>>([])
 
-  // clear selected player when not revealed (reactions only allowed post-reveal)
-  useEffect(() => {
-    if (!isRevealed) {
-      setSelectedPlayerId(null)
-    }
-  }, [isRevealed])
-
   // spam queue: stagger reactions by 50-100ms
-  const reactionQueueRef = useRef<{ emoji: string; targetPlayerId?: string; fromSocket?: boolean }[]>([])
+  const reactionQueueRef = useRef<{ emoji: string; targetPlayerId?: string; fromSocket?: boolean; isImage?: boolean; imageUrl?: string }[]>([])
   const processingRef = useRef(false)
 
   const processQueue = useCallback(() => {
@@ -122,12 +180,14 @@ export function PokerTable({
         item.fromSocket ? 'remote' : currentPlayerName,
         item.targetPlayerId,
         targetEl,
+        item.isImage,
+        item.imageUrl
       )
 
       setFlyingReactions(prev => [...prev, reaction])
 
       // remove after full animation (~flight + impact + bounces + settle)
-      const totalDuration = reaction.flightDuration + 80 + 600 + 300 + 500 // flight + impact + bounces + settle + buffer
+      const totalDuration = (reaction.flightDuration * 1.5) + 100 + 600 + 400 + 500 // flight + impact + bounces + settle + buffer (adjusted for slower animation)
       setTimeout(() => {
         setFlyingReactions(prev => prev.filter(r => r.id !== reaction.id))
       }, totalDuration)
@@ -149,13 +209,15 @@ export function PokerTable({
       transports: ['websocket'],
     })
 
-    socketInstance.on('reaction', (data: { emoji: string; playerName: string; targetPlayerId?: string }) => {
+    socketInstance.on('reaction', (data: { emoji: string; playerName: string; targetPlayerId?: string; isImage?: boolean; imageUrl?: string }) => {
       if (data.playerName === currentPlayerName) return
 
       reactionQueueRef.current.push({
         emoji: data.emoji,
         targetPlayerId: data.targetPlayerId,
         fromSocket: true,
+        isImage: data.isImage,
+        imageUrl: data.imageUrl
       })
       processQueue()
     })
@@ -199,12 +261,25 @@ export function PokerTable({
     }
   }, [gameId, players, currentPlayerName, processQueue])
 
-  const handleReact = useCallback((emoji: string, targetPlayerId?: string) => {
+  const handleReact = useCallback((emoji: string, targetPlayerId?: string, isImage?: boolean, imageUrl?: string) => {
     if (socket) {
-      socket.emit('reaction', { gameId, emoji, playerName: currentPlayerName, targetPlayerId })
+      socket.emit('reaction', { 
+        gameId, 
+        emoji, 
+        playerName: currentPlayerName, 
+        targetPlayerId,
+        isImage,
+        imageUrl
+      })
     }
 
-    reactionQueueRef.current.push({ emoji, targetPlayerId })
+    reactionQueueRef.current.push({ 
+      emoji, 
+      targetPlayerId,
+      fromSocket: false,
+      isImage,
+      imageUrl
+    })
     processQueue()
   }, [socket, gameId, currentPlayerName, processQueue])
 
@@ -279,8 +354,7 @@ export function PokerTable({
         return (
           <div
             data-player-card={player.id}
-            className="w-[46px] h-[64px] rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 border-2 border-blue-400 shadow-md cursor-not-allowed transition-transform"
-            title="Reactions available after reveal"
+            className="w-[46px] h-[64px] rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 border-2 border-blue-400 shadow-md relative group cursor-pointer transition-transform hover:scale-105"
           />
         )
       }
@@ -289,8 +363,7 @@ export function PokerTable({
         return (
           <div
             data-player-card={player.id}
-            className="w-[46px] h-[64px] rounded-lg bg-white border-2 border-blue-400 shadow-md flex items-center justify-center cursor-pointer transition-transform hover:scale-105"
-            onClick={() => setSelectedPlayerId(prev => prev === player.id ? null : player.id)}
+            className="w-[46px] h-[64px] rounded-lg bg-white border-2 border-blue-400 shadow-md flex items-center justify-center relative group cursor-pointer transition-transform hover:scale-105"
           >
             <span className="text-lg font-bold text-gray-800">
               {playerVote.points < 0 ? '☕' : playerVote.points}
@@ -302,7 +375,7 @@ export function PokerTable({
       return (
         <div
           data-player-card={player.id}
-          className="w-[46px] h-[64px] rounded-lg bg-gray-200 border-2 border-gray-300 shadow-sm"
+          className="w-[46px] h-[64px] rounded-lg bg-gray-200 border-2 border-gray-300 shadow-sm relative group"
         />
       )
     })()
@@ -316,77 +389,6 @@ export function PokerTable({
     )
   }
 
-  // Render avatar circle
-  const renderAvatar = (player: Player) => {
-    const isActive = isPlayerActive(player.id)
-    const isCurrentPlayer = player.name === currentPlayerName
-    const avatar = getAvatar(player.name)
-
-    return (
-      <div className="relative">
-        <div
-          className={`
-            w-10 h-10 rounded-full flex items-center justify-center text-lg
-            bg-gradient-to-br ${avatar.gradient}
-            border-2 border-white shadow-md
-            ${isCurrentPlayer ? 'ring-2 ring-blue-500 ring-offset-1' : ''}
-            ${!isActive ? 'opacity-60' : ''}
-          `}
-        >
-          {avatar.emoji}
-        </div>
-        {player.is_facilitator && (
-          <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 text-xs">
-            👑
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // Emoji picker popup rendered next to a card
-  const renderEmojiPopup = (player: Player, popupPosition: 'above' | 'below' | 'left' | 'right') => {
-    const isSelected = selectedPlayerId === player.id
-
-    const positionClasses: Record<string, string> = {
-      above: '-top-4 -translate-y-full left-1/2 -translate-x-1/2',
-      below: '-bottom-4 translate-y-full left-1/2 -translate-x-1/2',
-      left: '-left-4 -translate-x-full top-1/2 -translate-y-1/2',
-      right: '-right-4 translate-x-full top-1/2 -translate-y-1/2',
-    }
-
-    const isVertical = popupPosition === 'left' || popupPosition === 'right'
-
-    return (
-      <AnimatePresence>
-        {isSelected && isRevealed && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            className={`absolute z-30 ${positionClasses[popupPosition]}`}
-          >
-            <div className={`bg-gray-900/95 backdrop-blur-sm rounded-full shadow-xl border border-gray-700 ${isVertical ? 'px-2 py-3 flex flex-col gap-1' : 'px-3 py-2 flex gap-1'}`}>
-              {['👍', '❤️', '🎉', '😂', '🔥'].map(emoji => (
-                <button
-                  key={emoji}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleReact(emoji, player.id)
-                  }}
-                  className="emoji-popup-btn w-8 h-8 flex items-center justify-center text-lg hover:bg-gray-700 rounded-full transition-all hover:scale-125 active:scale-95"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    )
-  }
-
   // Top/Bottom players
   const renderVerticalPlayer = (player: Player, position: 'top' | 'bottom') => {
     const isCurrentPlayer = player.name === currentPlayerName
@@ -396,24 +398,20 @@ export function PokerTable({
         key={player.id}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="flex flex-col items-center gap-1 relative"
+        className="flex flex-col items-center gap-1"
       >
-        {position === 'top' && renderPlayerCard(player)}
-        <div className="flex flex-col items-center">
-          {position === 'top' && (
-            <span className={`text-xs font-semibold mb-1 ${isCurrentPlayer ? 'text-blue-600' : 'text-gray-600'}`}>
+        <PlayerPopover
+          placement={position === 'top' ? 'top' : 'bottom'}
+          onReact={(emoji, isImage, imageUrl) => handleReact(emoji, player.id, isImage, imageUrl)}
+        >
+          <div className="flex flex-col items-center gap-1">
+            {position === 'top' && renderPlayerCard(player)}
+            <span className={`text-xs font-semibold block text-center ${isCurrentPlayer ? 'text-blue-600' : 'text-gray-600'}`}>
               {player.name}
             </span>
-          )}
-          {renderAvatar(player)}
-          {position === 'bottom' && (
-            <span className={`text-xs font-semibold mt-1 ${isCurrentPlayer ? 'text-blue-600' : 'text-gray-600'}`}>
-              {player.name}
-            </span>
-          )}
-        </div>
-        {position === 'bottom' && renderPlayerCard(player)}
-        {renderEmojiPopup(player, position === 'top' ? 'above' : 'below')}
+            {position === 'bottom' && renderPlayerCard(player)}
+          </div>
+        </PlayerPopover>
       </motion.div>
     )
   }
@@ -427,31 +425,31 @@ export function PokerTable({
         key={player.id}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="flex items-center gap-2 relative"
+        className="flex items-center gap-2"
       >
-        {position === 'left' && (
-          <>
-            <div className="flex flex-col items-center gap-1">
-              {renderAvatar(player)}
-              <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-blue-600' : 'text-gray-600'}`}>
-                {player.name}
-              </span>
-            </div>
-            {renderPlayerCard(player)}
-          </>
-        )}
-        {position === 'right' && (
-          <>
-            {renderPlayerCard(player)}
-            <div className="flex flex-col items-center gap-1">
-              {renderAvatar(player)}
-              <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-blue-600' : 'text-gray-600'}`}>
-                {player.name}
-              </span>
-            </div>
-          </>
-        )}
-        {renderEmojiPopup(player, position === 'left' ? 'left' : 'right')}
+        <PlayerPopover
+          placement={position}
+          onReact={(emoji, isImage, imageUrl) => handleReact(emoji, player.id, isImage, imageUrl)}
+        >
+          <div className="flex items-center gap-2">
+            {position === 'left' && (
+              <>
+                <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-blue-600' : 'text-gray-600'}`}>
+                  {player.name}
+                </span>
+                {renderPlayerCard(player)}
+              </>
+            )}
+            {position === 'right' && (
+              <>
+                {renderPlayerCard(player)}
+                <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-blue-600' : 'text-gray-600'}`}>
+                  {player.name}
+                </span>
+              </>
+            )}
+          </div>
+        </PlayerPopover>
       </motion.div>
     )
   }
@@ -514,18 +512,6 @@ export function PokerTable({
       </motion.div>
     )
   }
-
-  // close emoji popup when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      if (!target.closest('[data-player-card]') && !target.closest('.emoji-popup-btn')) {
-        setSelectedPlayerId(null)
-      }
-    }
-    document.addEventListener('click', handleClickOutside)
-    return () => document.removeEventListener('click', handleClickOutside)
-  }, [])
 
   // clear settled emojis when issue changes or votes reset
   useEffect(() => {
@@ -620,3 +606,6 @@ export function PokerTable({
     </>
   )
 }
+
+// Re-export components from Reactions
+export { ReactionPicker } from './Reactions'
