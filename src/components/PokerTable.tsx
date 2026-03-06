@@ -358,8 +358,8 @@ export function PokerTable({
           <motion.div
             data-player-card={player.id}
             className="w-[46px] h-[64px] rounded-lg bg-gradient-to-br from-primary to-blue-700 border-2 border-blue-400 shadow-md relative group cursor-pointer"
-            initial={wasRecentlyPlaced ? { rotateY: 90, scale: 0.8, opacity: 0.5 } : { rotateY: 0, scale: 1, opacity: 1 }}
-            animate={{ rotateY: 0, scale: 1, opacity: 1 }}
+            initial={wasRecentlyPlaced ? { rotateY: 180, opacity: 0.8 } : { rotateY: 0, opacity: 1 }}
+            animate={{ rotateY: 0, opacity: 1 }}
             transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
             whileHover={{ scale: 1.05 }}
             style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
