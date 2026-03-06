@@ -31,6 +31,7 @@ interface PokerTableProps {
     value: number | string
     playerId: string
     issueId: string
+    timestamp: number
   } | null
 }
 
@@ -328,12 +329,28 @@ export function PokerTable({
   const bottomPlayers = players.slice(5, 8).reverse()
   const leftPlayers = players.slice(8, 10).reverse()
 
+  // Track recently placed cards for animation (within last 3 seconds)
+  const [recentlyPlaced, setRecentlyPlaced] = useState<Record<string, number>>({})
+  
+  // Update recently placed when pendingVote changes
+  useEffect(() => {
+    if (pendingVote && pendingVote.timestamp) {
+      setRecentlyPlaced(prev => ({
+        ...prev,
+        [pendingVote.playerId]: pendingVote.timestamp,
+      }))
+    }
+  }, [pendingVote])
+  
   // Render a player's card (face-down or face-up)
   const renderPlayerCard = (player: Player) => {
     // Check for pending vote (optimistic UI) - shows face-down card immediately
     const hasPendingVote = pendingVote && pendingVote.playerId === player.id && pendingVote.issueId === currentIssueId
     const hasVoted = currentVotes.some(v => v.player_id === player.id) || hasPendingVote
     const playerVote = currentVotes.find(v => v.player_id === player.id)
+    
+    // Check if card was recently placed (for animation trigger)
+    const wasRecentlyPlaced = recentlyPlaced[player.id] && (Date.now() - recentlyPlaced[player.id] < 3000)
 
     const cardContent = (() => {
       if (hasVoted && !isRevealed) {
@@ -341,11 +358,12 @@ export function PokerTable({
           <motion.div
             data-player-card={player.id}
             className="w-[46px] h-[64px] rounded-lg bg-gradient-to-br from-primary to-blue-700 border-2 border-blue-400 shadow-md relative group cursor-pointer"
-            initial={hasPendingVote ? { rotateY: 90, scale: 0.8, opacity: 0.5 } : { rotateY: 0, scale: 1, opacity: 1 }}
+            initial={wasRecentlyPlaced ? { rotateY: 90, scale: 0.8, opacity: 0.5 } : { rotateY: 0, scale: 1, opacity: 1 }}
             animate={{ rotateY: 0, scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
             whileHover={{ scale: 1.05 }}
             style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
+            key={wasRecentlyPlaced ? `placed-${recentlyPlaced[player.id]}` : 'static'}
           />
         )
       }

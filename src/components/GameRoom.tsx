@@ -254,6 +254,7 @@ export function GameRoom({ gameId }: GameRoomProps) {
         value: flyingCard.value,
         playerId: existingPlayer.id,
         issueId: currentIssue.id,
+        timestamp: Date.now(),
       })
     }
 
