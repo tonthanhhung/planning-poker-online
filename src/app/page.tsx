@@ -320,7 +320,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-border bg-surface py-6">
         <div className="container mx-auto px-4 text-center text-neutral text-sm">
-          <p>&copy; 2024 Planning Poker Online. Built for agile teams.</p>
+          <p>&copy; 2026 Planning Poker Online. Built for agile teams. {process.env.NEXT_PUBLIC_GIT_COMMIT?.slice(0, 7) && <span className="text-neutral-light">({process.env.NEXT_PUBLIC_GIT_COMMIT.slice(0, 7)})</span>}</p>
         </div>
       </footer>
     </div>

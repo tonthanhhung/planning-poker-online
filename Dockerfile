@@ -11,6 +11,8 @@ WORKDIR /app
 
 # Set production environment
 ENV NODE_ENV="production"
+ARG NEXT_PUBLIC_GIT_COMMIT
+ENV NEXT_PUBLIC_GIT_COMMIT=${NEXT_PUBLIC_GIT_COMMIT}
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
