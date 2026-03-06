@@ -263,14 +263,18 @@ function FlyingEmojiElement({ reaction, onComplete }: {
     
     // offset so the emoji hits the EDGE of the card (not center)
     const cardWidth = 46
+    const cardHeight = 64 // approximate card height
     const cameFromLeft = sx < ex
-    
+
     if (cameFromLeft) {
       ex -= halfW + cardWidth/2
     } else {
       ex -= halfW - cardWidth/2
     }
     ey -= halfH
+    
+    // Ground level for bounce: bottom edge of the card
+    const bounceGroundY = ey + cardHeight/2 + halfH - 10
 
     // control point: midpoint offset upward by arcHeight, with some horizontal jitter
     const cx = (sx + ex) / 2 + (rand() - 0.5) * 150 // Increased jitter for more natural look
@@ -285,7 +289,7 @@ function FlyingEmojiElement({ reaction, onComplete }: {
         let dropStartY = ey
         let dropVelocity = 0
         let bounceCount = 0
-        let bounceBaseY = ey
+        let bounceBaseY = bounceGroundY
         let bounceVelocity = 0
         let bounceVelocityX = 0  // horizontal velocity for bouncing away
         let bounceBaseX = ex     // starting X for bounce
@@ -297,7 +301,7 @@ function FlyingEmojiElement({ reaction, onComplete }: {
         // If came from left, bounce left (-), if from right, bounce right (+)
         const bounceDirection = cameFromLeft ? -1 : 1
 
-        const impactDuration = 100 // Longer impact for smoother effect
+        const impactDuration = 30 // Quick impact before bounce
         const dropDistance = 15 + rand() * 15 // More varied drop distance
 
     let animId: number
@@ -389,10 +393,10 @@ function FlyingEmojiElement({ reaction, onComplete }: {
         // Calculate new X position (horizontal movement away from card)
         const currentPosX = bounceBaseX + bounceVelocityX * bounceElapsed
 
-        // Check if it has hit the target surface again (currentPosY >= ey)
-        if (currentPosY >= ey) {
-          // Reset position to target Y (simulate contact with surface)
-          currentY = ey
+        // Check if it has hit the ground (currentPosY >= bounceGroundY)
+        if (currentPosY >= bounceGroundY) {
+          // Reset position to ground level (simulate contact with surface)
+          currentY = bounceGroundY
 
           // Apply damping to the velocities (energy loss during impact)
           bounceVelocity = -currentVel * BOUNCE_DAMPING
@@ -404,7 +408,7 @@ function FlyingEmojiElement({ reaction, onComplete }: {
           if (Math.abs(bounceVelocity) < MIN_BOUNCE_VELOCITY || bounceCount >= MAX_BOUNCES) {
             phase = 'settle'
             settleStartTime = elapsed
-            currentY = ey // Ensure it stays at the target Y
+            currentY = bounceGroundY // Ensure it stays at the ground level
           } else {
             // Prepare for next bounce
             bounceBaseY = currentY
