@@ -5,6 +5,44 @@
 
 set -e
 
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "❌ Not a git repository"
+    exit 1
+fi
+
+# Check for uncommitted changes
+if ! git diff-index --quiet HEAD --; then
+    echo "❌ You have uncommitted changes. Please commit or stash them first."
+    git status --short
+    exit 1
+fi
+
+# Get the last tag
+LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+if [ -n "$LAST_TAG" ]; then
+    # Check if there are commits since the last tag
+    COMMITS_SINCE_TAG=$(git log "$LAST_TAG"..HEAD --oneline 2>/dev/null || echo "")
+    
+    if [ -z "$COMMITS_SINCE_TAG" ]; then
+        echo "❌ No changes since last tag ($LAST_TAG)"
+        echo ""
+        echo "Make some commits before bumping version:"
+        echo "   git log --oneline -5"
+        exit 1
+    fi
+    
+    echo "📋 Changes since $LAST_TAG:"
+    echo "$COMMITS_SINCE_TAG" | head -10
+    if [ $(echo "$COMMITS_SINCE_TAG" | wc -l) -gt 10 ]; then
+        echo "   ... and $(($(echo "$COMMITS_SINCE_TAG" | wc -l) - 10)) more commits"
+    fi
+    echo ""
+else
+    echo "⚠️  No previous tag found. This will be the first release."
+fi
+
 # Default to patch if no argument provided
 BUMP_TYPE=${1:-patch}
 
