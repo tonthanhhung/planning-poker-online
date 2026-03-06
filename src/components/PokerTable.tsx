@@ -357,14 +357,29 @@ export function PokerTable({
         return (
           <motion.div
             data-player-card={player.id}
-            className="w-[46px] h-[64px] rounded-lg bg-gradient-to-br from-primary to-blue-700 border-2 border-blue-400 shadow-md relative group cursor-pointer"
-            initial={wasRecentlyPlaced ? { rotateY: 180, opacity: 0.8 } : { rotateY: 0, opacity: 1 }}
-            animate={{ rotateY: 0, opacity: 1 }}
+            className="w-[46px] h-[64px] relative group cursor-pointer"
+            initial={wasRecentlyPlaced ? { rotateY: 0 } : { rotateY: 180 }}
+            animate={{ rotateY: 180 }}
             transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
             whileHover={{ scale: 1.05 }}
             style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
             key={wasRecentlyPlaced ? `placed-${recentlyPlaced[player.id]}` : 'static'}
-          />
+          >
+            {/* Front face (face-up, shows value) */}
+            <div 
+              className="absolute inset-0 rounded-lg bg-surface border-2 border-primary shadow-md flex items-center justify-center backface-hidden"
+              style={{ backfaceVisibility: 'hidden', transform: 'rotateY(0deg)' }}
+            >
+              <span className="text-lg font-bold text-primary">
+                {pendingVote?.playerId === player.id ? pendingVote.value : (playerVote?.points ?? '?')}
+              </span>
+            </div>
+            {/* Back face (face-down, blue) */}
+            <div 
+              className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary to-blue-700 border-2 border-blue-400 shadow-md backface-hidden"
+              style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+            />
+          </motion.div>
         )
       }
 
