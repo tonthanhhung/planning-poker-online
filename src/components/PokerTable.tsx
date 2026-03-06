@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { FlyingReactions, SettledEmojis, ReactionPicker, type FlyingEmoji, type SettledEmoji, MAX_SETTLED_PER_CARD } from './Reactions'
+import { FlyingReactions, ReactionPicker, type FlyingEmoji } from './Reactions'
 import type { Player } from '@/types'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
@@ -136,7 +136,6 @@ export function PokerTable({
 }: PokerTableProps) {
   const currentVotes = currentIssueId ? votes[currentIssueId] || [] : []
   const [flyingReactions, setFlyingReactions] = useState<FlyingEmoji[]>([])
-  const [settledEmojis, setSettledEmojis] = useState<Record<string, SettledEmoji[]>>({})
   const [socket, setSocket] = useState<Socket | null>(null)
 
   // flying cards from other players
@@ -283,26 +282,6 @@ export function PokerTable({
     processQueue()
   }, [socket, gameId, currentPlayerName, processQueue])
 
-  // handle settled emojis from completed animations
-  const handleSettled = useCallback((settled: SettledEmoji) => {
-    if (!settled.targetPlayerId) return
-
-    setSettledEmojis(prev => {
-      const existing = prev[settled.targetPlayerId] || []
-      // enforce max per card
-      const updated = [...existing, settled].slice(-MAX_SETTLED_PER_CARD)
-      return { ...prev, [settled.targetPlayerId]: updated }
-    })
-
-    // auto-fade settled emoji after 4 seconds
-    setTimeout(() => {
-      setSettledEmojis(prev => {
-        const existing = prev[settled.targetPlayerId] || []
-        return { ...prev, [settled.targetPlayerId]: existing.filter(e => e.id !== settled.id) }
-      })
-    }, 4000)
-  }, [])
-
   // calculate vote distribution for the bar chart
   const voteDistribution = useMemo(() => {
     if (!isRevealed || currentVotes.length === 0) return []
@@ -347,7 +326,6 @@ export function PokerTable({
   const renderPlayerCard = (player: Player) => {
     const hasVoted = currentVotes.some(v => v.player_id === player.id)
     const playerVote = currentVotes.find(v => v.player_id === player.id)
-    const cardSettled = settledEmojis[player.id] || []
 
     const cardContent = (() => {
       if (hasVoted && !isRevealed) {
@@ -380,13 +358,7 @@ export function PokerTable({
       )
     })()
 
-    return (
-      <div className="relative">
-        {cardContent}
-        {/* Settled emojis on this card */}
-        {cardSettled.length > 0 && <SettledEmojis emojis={cardSettled} />}
-      </div>
-    )
+    return cardContent
   }
 
   // Top/Bottom players
@@ -516,14 +488,9 @@ export function PokerTable({
     )
   }
 
-  // clear settled emojis when issue changes or votes reset
-  useEffect(() => {
-    setSettledEmojis({})
-  }, [currentIssueId, isRevealed])
-
   return (
     <>
-      <FlyingReactions reactions={flyingReactions} onSettled={handleSettled} />
+      <FlyingReactions reactions={flyingReactions} />
       
       {/* Flying cards from other players */}
       <AnimatePresence>
@@ -583,7 +550,7 @@ export function PokerTable({
           </div>
 
           {/* Central table */}
-          <div className="w-full min-h-[180px] md:min-h-[220px] rounded-2xl bg-gradient-to-b from-blue-light to-blue-subtle border border-blue-200/60 shadow-sm flex flex-col items-center justify-center px-6 py-8 relative">
+          <div className="w-full min-h-[180px] md:min-h-[220px] rounded-2xl bg-slate-100 border border-slate-200 shadow-sm flex flex-col items-center justify-center px-6 py-8 relative">
             {!currentIssueId ? (
               <p className="text-neutral font-medium text-sm">Add an issue to start voting</p>
             ) : currentVotes.length === 0 ? (
