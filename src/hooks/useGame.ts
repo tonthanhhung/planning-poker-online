@@ -17,6 +17,7 @@ interface UseGameState {
 export function useGame(gameId: string | null): UseGameState & {
   refreshGame: () => Promise<void>
   updateGameStatus: (status: GameStatus) => Promise<void>
+  setVotes: React.Dispatch<React.SetStateAction<Record<string, Vote[]>>>
 } {
   const [state, setState] = useState<UseGameState>({
     game: null,
@@ -146,5 +147,6 @@ export function useGame(gameId: string | null): UseGameState & {
     votes,
     refreshGame: loadGame,
     updateGameStatus,
+    setVotes,
   }
 }
