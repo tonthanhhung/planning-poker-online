@@ -99,6 +99,16 @@ body {
   box-shadow: 0 4px 8px rgba(9, 30, 66, 0.07), 0 12px 24px rgba(9, 30, 66, 0.1);
 }
 
+/* Fade in animation */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
 /* Button styles */
 .btn-primary {
   background-color: var(--ds-primary);

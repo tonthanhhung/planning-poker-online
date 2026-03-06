@@ -661,16 +661,16 @@ export function GameRoom({ gameId }: GameRoomProps) {
               {/* Voting Cards */}
               {(game?.status === 'voting' || game?.status === 'lobby') && (
                 <div className="text-center border-t border-border pt-6">
-                  <p className="text-neutral mb-4">
+                  <p className="text-neutral mb-4 h-6 flex items-center justify-center">
                     {hasVoted ? (
-                      <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1 animate-fade-in">
                         <svg className="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                         Vote submitted! Change your vote anytime below
                       </span>
                     ) : (
-                      'Choose your card'
+                      <span className="opacity-0">Vote submitted! Change your vote anytime below</span>
                     )}
                   </p>
                   <PokerCardDeck
