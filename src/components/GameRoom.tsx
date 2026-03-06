@@ -62,9 +62,15 @@ export function GameRoom({ gameId }: GameRoomProps) {
   useEffect(() => {
     const existingPlayer = players.find(p => p.name === playerName)
     if (existingPlayer) {
-      setHasVoted(!!currentVotes.some(v => v.player_id === existingPlayer.id))
+      const playerHasVoted = !!currentVotes.some(v => v.player_id === existingPlayer.id)
+      setHasVoted(playerHasVoted)
+      
+      // Clear pending vote once DB confirms the vote
+      if (playerHasVoted && pendingVote && pendingVote.playerId === existingPlayer.id) {
+        setPendingVote(null)
+      }
     }
-  }, [currentVotes, players, playerName])
+  }, [currentVotes, players, playerName, pendingVote])
 
   // Reset voting state when issue changes
   useEffect(() => {
@@ -299,9 +305,10 @@ export function GameRoom({ gameId }: GameRoomProps) {
       // Reset on error
       setSelectedCard(null)
     } finally {
-      // Clear flying card and pending vote after submission
+      // Clear flying card after submission
+      // Note: pendingVote is NOT cleared here - it stays until DB confirms
+      // to prevent the flicker from face-down -> empty -> face-down
       setFlyingCard(null)
-      setPendingVote(null)
     }
   }
 
