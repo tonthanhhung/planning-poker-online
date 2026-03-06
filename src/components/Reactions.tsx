@@ -136,7 +136,7 @@ export function ReactionPicker({ onReact, onMouseLeave }: ReactionsProps) {
             className="w-8 h-8 flex items-center justify-center hover:bg-gray-700 rounded-full transition-colors"
             title={img.label}
           >
-            <img src={img.url} alt={img.label} className="w-6 h-6 object-contain" />
+            <img src={img.url} alt={img.label} className="w-5 h-5 object-contain" />
           </button>
         ))}
         <button
@@ -253,8 +253,8 @@ function FlyingEmojiElement({ reaction, onComplete }: {
 
     // measure the emoji/image element size so we can center it on targets
     const emojiRect = el.getBoundingClientRect()
-    const halfW = emojiRect.width / 2 || (reaction.isImage ? 25 : 15) // Larger size for images
-    const halfH = emojiRect.height / 2 || (reaction.isImage ? 25 : 15)
+    const halfW = emojiRect.width / 2 || (reaction.isImage ? 16 : 15) // 16px for images (32px / 2)
+    const halfH = emojiRect.height / 2 || (reaction.isImage ? 16 : 15)
 
     const rand = seededRandom(reaction.seed)
     const flightMs = reaction.flightDuration * 1.5 // Slower flight speed
@@ -345,8 +345,8 @@ function FlyingEmojiElement({ reaction, onComplete }: {
 
         if (reaction.isImage && reaction.imageUrl) {
           el.style.transform = `translate(${px}px, ${py}px) scale(${scale}) rotate(${rotation}deg)`
-          el.style.width = '50px'
-          el.style.height = '50px'
+          el.style.width = '32px'
+          el.style.height = '32px'
         } else {
           el.style.transform = `translate(${px}px, ${py}px) scale(${scale}) rotate(${rotation}deg)`
         }
@@ -382,8 +382,8 @@ function FlyingEmojiElement({ reaction, onComplete }: {
 
         if (reaction.isImage && reaction.imageUrl) {
           el.style.transform = `translate(${currentX + shakeX}px, ${currentY}px) scale(${scaleX}, ${scaleY}) rotate(${microRotation}deg)`
-          el.style.width = '50px'
-          el.style.height = '50px'
+          el.style.width = '32px'
+          el.style.height = '32px'
         } else {
           el.style.transform = `translate(${currentX + shakeX}px, ${currentY}px) scale(${scaleX}, ${scaleY}) rotate(${microRotation}deg)`
         }
@@ -443,8 +443,8 @@ function FlyingEmojiElement({ reaction, onComplete }: {
 
         if (reaction.isImage && reaction.imageUrl) {
           el.style.transform = `translate(${currentX}px, ${currentY}px) scale(1.0) rotate(${bounceRot}deg)`
-          el.style.width = '50px'
-          el.style.height = '50px'
+          el.style.width = '32px'
+          el.style.height = '32px'
         } else {
           el.style.transform = `translate(${currentX}px, ${currentY}px) scale(1.0) rotate(${bounceRot}deg)`
         }
@@ -454,8 +454,8 @@ function FlyingEmojiElement({ reaction, onComplete }: {
 
         if (reaction.isImage && reaction.imageUrl) {
           el.style.transform = `translate(${currentX}px, ${currentY}px) scale(${1.0 - fadeT * 0.2}) rotate(0deg)`
-          el.style.width = '50px'
-          el.style.height = '50px'
+          el.style.width = '32px'
+          el.style.height = '32px'
         } else {
           el.style.transform = `translate(${currentX}px, ${currentY}px) scale(${1.0 - fadeT * 0.2}) rotate(0deg)`
         }
@@ -501,10 +501,10 @@ function FlyingEmojiElement({ reaction, onComplete }: {
       }}
     >
       {reaction.isImage && reaction.imageUrl ? (
-        <img 
-          src={reaction.imageUrl} 
-          alt="Custom reaction" 
-          className="w-12 h-12 object-contain rounded-sm"
+        <img
+          src={reaction.imageUrl}
+          alt="Custom reaction"
+          className="w-8 h-8 object-contain rounded-sm"
         />
       ) : (
         <span className="text-3xl">{reaction.emoji}</span>
