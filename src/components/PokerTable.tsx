@@ -330,14 +330,18 @@ export function PokerTable({
   const leftPlayers = players.slice(8, 10).reverse()
 
   // Track recently placed cards for animation (within last 3 seconds)
-  const [recentlyPlaced, setRecentlyPlaced] = useState<Record<string, number>>({})
+  // Stores { playerId: { timestamp, value } }
+  const [recentlyPlaced, setRecentlyPlaced] = useState<Record<string, { timestamp: number; value: number | string }>>({})
   
   // Update recently placed when pendingVote changes
   useEffect(() => {
     if (pendingVote && pendingVote.timestamp) {
       setRecentlyPlaced(prev => ({
         ...prev,
-        [pendingVote.playerId]: pendingVote.timestamp,
+        [pendingVote.playerId]: { 
+          timestamp: pendingVote.timestamp, 
+          value: pendingVote.value 
+        },
       }))
     }
   }, [pendingVote])
@@ -350,7 +354,8 @@ export function PokerTable({
     const playerVote = currentVotes.find(v => v.player_id === player.id)
     
     // Check if card was recently placed (for animation trigger)
-    const wasRecentlyPlaced = recentlyPlaced[player.id] && (Date.now() - recentlyPlaced[player.id] < 3000)
+    const recentPlacement = recentlyPlaced[player.id]
+    const wasRecentlyPlaced = recentPlacement && (Date.now() - recentPlacement.timestamp < 3000)
 
     const cardContent = (() => {
       if (hasVoted && !isRevealed) {
@@ -363,15 +368,17 @@ export function PokerTable({
             transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
             whileHover={{ scale: 1.05 }}
             style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
-            key={wasRecentlyPlaced ? `placed-${recentlyPlaced[player.id]}` : 'static'}
+            key={wasRecentlyPlaced && recentPlacement ? `placed-${recentPlacement.timestamp}` : 'static'}
           >
             {/* Front face (face-up, shows value) */}
-            <div 
+            <div
               className="absolute inset-0 rounded-lg bg-surface border-2 border-primary shadow-md flex items-center justify-center backface-hidden"
               style={{ backfaceVisibility: 'hidden', transform: 'rotateY(0deg)' }}
             >
               <span className="text-lg font-bold text-primary">
-                {pendingVote?.playerId === player.id ? pendingVote.value : (playerVote?.points ?? '?')}
+                {wasRecentlyPlaced && recentPlacement 
+                  ? recentPlacement.value 
+                  : (playerVote?.points ?? '?')}
               </span>
             </div>
             {/* Back face (face-down, blue) */}
