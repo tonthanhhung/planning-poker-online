@@ -51,6 +51,7 @@ export function GameRoom({ gameId }: GameRoomProps) {
     value: number | typeof COFFEE_CARD
     playerId: string
     issueId: string
+    timestamp: number
   } | null>(null)
   const [wasRemoved, setWasRemoved] = useState(false)
 
