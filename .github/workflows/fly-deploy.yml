@@ -1,15 +1,18 @@
-# See https://fly.io/docs/app-guides/continuous-deployment-with-github-actions/
+# Deploy to Fly.io only on version tags (e.g., v1.0.0)
+# Manual releases prevent broken deployments from every commit
 
 name: Fly Deploy
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'  # Only deploy on version tags like v1.0.0, v2.1.0
+  workflow_dispatch:  # Allow manual trigger
+
 jobs:
   deploy:
     name: Deploy app
     runs-on: ubuntu-latest
-    concurrency: deploy-group    # optional: ensure only one action runs at a time
+    concurrency: deploy-group
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master

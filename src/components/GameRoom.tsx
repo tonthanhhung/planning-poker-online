@@ -623,19 +623,23 @@ export function GameRoom({ gameId }: GameRoomProps) {
                   <h2 className="text-lg font-semibold text-secondary">
                     {currentIssue ? currentIssue.title : 'No Issue Selected'}
                   </h2>
-                  {currentIssue && (
-                    <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 h-6">
+                    {currentIssue ? (
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        currentIssue.status === 'voting' 
-                          ? 'bg-blue-light text-primary' 
+                        currentIssue.status === 'voting'
+                          ? 'bg-blue-light text-primary'
                           : currentIssue.status === 'completed'
                           ? 'bg-green-light text-success'
                           : 'bg-neutral-light text-neutral'
                       }`}>
                         {currentIssue.status}
                       </span>
-                    </div>
-                  )}
+                    ) : (
+                      <span className="opacity-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium">
+                        placeholder
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
