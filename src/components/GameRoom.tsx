@@ -231,18 +231,9 @@ export function GameRoom({ gameId }: GameRoomProps) {
       endY: endPosition.y,
     })
     setSelectedCard(value)
-    
-    // Set pending vote for optimistic UI - shows face-down card immediately
-    if (existingPlayer && currentIssue) {
-      setPendingVote({
-        value,
-        playerId: existingPlayer.id,
-        issueId: currentIssue.id,
-      })
-    }
 
-    // Wait for animation to complete before submitting vote
-    // The actual submission happens in handleFlyingCardComplete
+    // Wait for animation to complete before showing face-down card and submitting vote
+    // The pending vote and submission happens in handleFlyingCardComplete
   }
 
   const handleFlyingCardComplete = async () => {
@@ -250,6 +241,15 @@ export function GameRoom({ gameId }: GameRoomProps) {
 
     const existingPlayer = players.find(p => p.name === playerName)
     if (!existingPlayer) return
+
+    // Show face-down card immediately when animation completes (before DB submission)
+    if (currentIssue) {
+      setPendingVote({
+        value: flyingCard.value,
+        playerId: existingPlayer.id,
+        issueId: currentIssue.id,
+      })
+    }
 
     // Auto-create a default issue if none exists
     let issueId = currentIssue?.id
