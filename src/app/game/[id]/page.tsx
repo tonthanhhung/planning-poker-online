@@ -1,6 +1,6 @@
-'use client'
-
 export const dynamic = 'force-dynamic'
+
+'use client'
 
 import { GameRoom } from '@/components/GameRoom'
 import { useParams } from 'next/navigation'
