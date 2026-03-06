@@ -354,7 +354,7 @@ export function PokerTable({
         return (
           <div
             data-player-card={player.id}
-            className="w-[46px] h-[64px] rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 border-2 border-blue-400 shadow-md relative group cursor-pointer transition-transform hover:scale-105"
+            className="w-[46px] h-[64px] rounded-lg bg-gradient-to-br from-primary to-blue-700 border-2 border-blue-400 shadow-md relative group cursor-pointer transition-transform hover:scale-105"
           />
         )
       }
@@ -363,9 +363,9 @@ export function PokerTable({
         return (
           <div
             data-player-card={player.id}
-            className="w-[46px] h-[64px] rounded-lg bg-white border-2 border-blue-400 shadow-md flex items-center justify-center relative group cursor-pointer transition-transform hover:scale-105"
+            className="w-[46px] h-[64px] rounded-lg bg-surface border-2 border-primary shadow-md flex items-center justify-center relative group cursor-pointer transition-transform hover:scale-105"
           >
-            <span className="text-lg font-bold text-gray-800">
+            <span className="text-lg font-bold text-primary">
               {playerVote.points < 0 ? '☕' : playerVote.points}
             </span>
           </div>
@@ -375,7 +375,7 @@ export function PokerTable({
       return (
         <div
           data-player-card={player.id}
-          className="w-[46px] h-[64px] rounded-lg bg-gray-200 border-2 border-gray-300 shadow-sm relative group"
+          className="w-[46px] h-[64px] rounded-lg bg-neutral-light border-2 border-border shadow-sm relative group"
         />
       )
     })()
@@ -406,7 +406,7 @@ export function PokerTable({
         >
           <div className="flex flex-col items-center gap-1">
             {position === 'top' && renderPlayerCard(player)}
-            <span className={`text-xs font-semibold block text-center ${isCurrentPlayer ? 'text-blue-600' : 'text-gray-600'}`}>
+            <span className={`text-xs font-semibold block text-center ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
               {player.name}
             </span>
             {position === 'bottom' && renderPlayerCard(player)}
@@ -434,7 +434,7 @@ export function PokerTable({
           <div className="flex items-center gap-2">
             {position === 'left' && (
               <>
-                <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-blue-600' : 'text-gray-600'}`}>
+                <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
                   {player.name}
                 </span>
                 {renderPlayerCard(player)}
@@ -443,7 +443,7 @@ export function PokerTable({
             {position === 'right' && (
               <>
                 {renderPlayerCard(player)}
-                <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-blue-600' : 'text-gray-600'}`}>
+                <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
                   {player.name}
                 </span>
               </>
@@ -475,37 +475,40 @@ export function PokerTable({
                 initial={{ height: 0 }}
                 animate={{ height: barHeight }}
                 transition={{ duration: 0.5, ease: 'easeOut' }}
-                className={`w-3 rounded-full ${isHighest ? 'bg-gray-700' : 'bg-gray-300'}`}
+                className={`w-3 rounded-full ${isHighest ? 'bg-primary' : 'bg-neutral-light'}`}
               />
               <div className={`w-10 h-10 rounded-md border-2 flex items-center justify-center text-sm font-bold
-                ${isHighest ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-300 bg-white text-gray-500'}`}>
+                ${isHighest ? 'border-primary bg-blue-light text-primary' : 'border-border bg-surface text-neutral'}`}>
                 {value}
               </div>
-              <span className={`text-[10px] font-medium ${isHighest ? 'text-gray-700' : 'text-gray-400'}`}>
+              <span className={`text-[10px] font-medium ${isHighest ? 'text-secondary' : 'text-neutral'}`}>
                 {count} {count === 1 ? 'Vote' : 'Votes'}
               </span>
             </div>
           )
         })}
 
-        <div className="flex flex-col items-start gap-1 ml-6 pl-6 border-l border-gray-300/60">
+        <div className="flex flex-col items-start gap-1 ml-6 pl-6 border-l border-border">
           <div>
-            <span className="text-gray-400 text-xs">Average:</span>
-            <div className="text-2xl font-bold text-gray-800">{voteStats.average}</div>
+            <span className="text-neutral text-xs">Average:</span>
+            <div className="text-2xl font-bold text-secondary">{voteStats.average}</div>
           </div>
           {voteStats.consensus && (
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              className="text-green-600 font-semibold text-sm"
+              className="text-success font-semibold text-sm inline-flex items-center gap-1"
             >
-              🎉 Consensus!
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Consensus!
             </motion.div>
           )}
           {!voteStats.consensus && voteStats.min !== null && (
             <div>
-              <span className="text-gray-400 text-xs">Range:</span>
-              <div className="text-sm font-semibold text-gray-600">{voteStats.min} - {voteStats.max}</div>
+              <span className="text-neutral text-xs">Range:</span>
+              <div className="text-sm font-medium text-secondary">{voteStats.min} - {voteStats.max}</div>
             </div>
           )}
         </div>
@@ -548,7 +551,7 @@ export function PokerTable({
             }}
           >
             <motion.div
-              className="w-full h-full rounded-lg bg-white border-2 border-blue-400 shadow-xl flex items-center justify-center"
+              className="w-full h-full rounded-lg bg-surface border-2 border-primary shadow-xl flex items-center justify-center"
               animate={{
                 scaleY: [1, 1, 0.96, 1],
                 scaleX: [1, 1, 1.04, 1],
@@ -558,7 +561,7 @@ export function PokerTable({
                 times: [0, 0.7, 0.85, 1],
               }}
             >
-              <span className="font-bold text-blue-600 text-2xl">
+              <span className="font-bold text-primary text-2xl">
                 {typeof card.value === 'number' ? card.value : '☕'}
               </span>
             </motion.div>
@@ -580,13 +583,13 @@ export function PokerTable({
           </div>
 
           {/* Central table */}
-          <div className="w-full min-h-[180px] md:min-h-[220px] rounded-[2rem] bg-gradient-to-b from-blue-50 to-blue-100/80 border border-blue-200/60 shadow-lg flex flex-col items-center justify-center px-6 py-8 relative">
+          <div className="w-full min-h-[180px] md:min-h-[220px] rounded-2xl bg-gradient-to-b from-blue-light to-blue-subtle border border-blue-200/60 shadow-sm flex flex-col items-center justify-center px-6 py-8 relative">
             {!currentIssueId ? (
-              <p className="text-blue-400 font-medium text-sm">Add an issue to start voting</p>
+              <p className="text-neutral font-medium text-sm">Add an issue to start voting</p>
             ) : currentVotes.length === 0 ? (
-              <p className="text-blue-400 font-medium text-sm">Waiting for player&apos;s votes...</p>
+              <p className="text-neutral font-medium text-sm">Waiting for player&apos;s votes...</p>
             ) : !isRevealed ? (
-              <p className="text-blue-400 font-medium text-sm">Waiting for player&apos;s votes...</p>
+              <p className="text-neutral font-medium text-sm">Waiting for player&apos;s votes...</p>
             ) : (
               renderVoteDistribution()
             )}

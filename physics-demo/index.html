@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ball Throw Physics Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #fff;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .instructions {
+            color: #aaa;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        #game-container {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        canvas {
+            display: block;
+            background: linear-gradient(180deg, #0f0f23 0%, #1a1a3e 100%);
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #1976D2;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d32f2f;
+            transform: translateY(-2px);
+        }
+
+        .stats {
+            margin-top: 15px;
+            color: #aaa;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .stats span {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Ball Throw Physics Demo</h1>
+    <p class="instructions">
+        🖱️ <strong>Drag & Release</strong> to throw the ball into the box | 
+        The ball bounces with realistic physics!
+    </p>
+
+    <div id="game-container">
+        <canvas id="world"></canvas>
+    </div>
+
+    <div class="controls">
+        <button class="btn-primary" onclick="spawnBall()">🎱 Spawn New Ball</button>
+        <button class="btn-secondary" onclick="resetScene()">🔄 Reset Scene</button>
+        <button class="btn-danger" onclick="clearBalls()">🗑️ Clear All Balls</button>
+    </div>
+
+    <div class="stats">
+        Balls in box: <span id="score">0</span> | 
+        Total balls: <span id="total">0</span> |
+        Restitution (bounciness): <span>0.7</span>
+    </div>
+
+    <!-- Matter.js Physics Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

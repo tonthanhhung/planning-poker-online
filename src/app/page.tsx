@@ -15,11 +15,9 @@ export default function Home() {
   const [isCheckingLastGame, setIsCheckingLastGame] = useState(true)
   const [showCreateNew, setShowCreateNew] = useState(false)
 
-  // Check for last game on mount and auto-redirect
   useEffect(() => {
     const lastGameId = localStorage.getItem(LAST_GAME_ID_KEY)
     if (lastGameId && !showCreateNew) {
-      // Verify the game still exists before redirecting
       const checkGame = async () => {
         try {
           const { data } = await supabase
@@ -29,15 +27,12 @@ export default function Home() {
             .single()
           
           if (data) {
-            // Game exists, redirect to it
             router.push(`/game/${lastGameId}`)
           } else {
-            // Game no longer exists, clear it
             localStorage.removeItem(LAST_GAME_ID_KEY)
             setIsCheckingLastGame(false)
           }
         } catch {
-          // Error checking, just show the form
           setIsCheckingLastGame(false)
         }
       }
@@ -56,10 +51,7 @@ export default function Home() {
 
     setIsCreating(true)
     try {
-      const gameId = uuidv4().slice(0, 8) // Short ID for easy sharing
-
-      console.log('Creating game:', gameId, 'with name:', gameName)
-      console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+      const gameId = uuidv4().slice(0, 8)
 
       const { data, error } = await supabase
         .from('games')
@@ -107,10 +99,9 @@ export default function Home() {
     setIsCheckingLastGame(false)
   }
 
-  // Show loading state while checking last game
   if (isCheckingLastGame) {
     return (
-      <div className="min-h-screen gradient-bg flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -119,31 +110,36 @@ export default function Home() {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-            className="w-12 h-12 border-4 border-white/20 border-t-primary rounded-full mx-auto mb-4"
+            className="w-12 h-12 border-4 border-neutral-light border-t-primary rounded-full mx-auto mb-4"
           />
-          <p className="text-white text-lg">Checking for your last game...</p>
+          <p className="text-secondary text-lg">Checking for your last game...</p>
         </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen gradient-bg">
+    <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="glass border-b border-white/10">
-        <div className="container mx-auto px-4 py-4">
+      <nav className="border-b border-border bg-surface elevation-low">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-2xl font-bold text-white"
+              className="flex items-center gap-3"
             >
-              Planning Poker Online
+              <div className="w-8 h-8 rounded bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                </svg>
+              </div>
+              <div className="text-xl font-semibold text-secondary">Planning Poker</div>
             </motion.div>
-            <div className="flex gap-4">
+            <div className="flex gap-2">
               <button
                 onClick={handleJoinGame}
-                className="px-4 py-2 text-white hover:text-accent transition-colors"
+                className="px-4 py-2 text-secondary hover:bg-neutral-light rounded transition-colors font-medium"
               >
                 Join Game
               </button>
@@ -155,24 +151,23 @@ export default function Home() {
       {/* Hero Section */}
       <main className="container mx-auto px-4 py-16">
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center max-w-4xl mx-auto"
+          transition={{ duration: 0.4 }}
+          className="max-w-4xl mx-auto"
         >
-          <h1 className="text-6xl font-bold text-white mb-6">
-            Scrum Poker for{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
-              agile teams
-            </span>
-          </h1>
-          <p className="text-2xl text-gray-300 mb-12">
-            Easy-to-use and fun estimations. Vote and estimate issues in real-time.
-          </p>
+          <div className="text-center mb-12">
+            <h1 className="text-5xl font-bold text-secondary mb-4">
+              Scrum Poker for agile teams
+            </h1>
+            <p className="text-xl text-neutral mb-8">
+              Easy-to-use and fun estimations. Vote and estimate issues in real-time.
+            </p>
+          </div>
 
-          {/* Create Game Form */}
-          <div className="glass rounded-2xl p-8 max-w-md mx-auto mb-16">
-            <h2 className="text-2xl font-semibold text-white mb-6">
+          {/* Create Game Card */}
+          <div className="bg-surface rounded-lg border border-border elevation-medium p-8 max-w-md mx-auto mb-16">
+            <h2 className="text-2xl font-semibold text-secondary mb-6">
               {showCreateNew ? 'Start New Game' : 'Create Game'}
             </h2>
             <div className="space-y-4">
@@ -182,13 +177,13 @@ export default function Home() {
                 value={gameName}
                 onChange={(e) => setGameName(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleCreateGame()}
-                className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-4 py-2.5 rounded border border-border text-secondary placeholder-neutral focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 autoFocus
               />
               <button
                 onClick={handleCreateGame}
                 disabled={!gameName.trim() || isCreating}
-                className="w-full py-3 bg-gradient-to-r from-primary to-secondary hover:from-blue-600 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-semibold text-lg transition-all glow-hover"
+                className="w-full py-2.5 bg-primary hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-white font-semibold transition-colors"
               >
                 {isCreating ? 'Creating...' : 'Create Game'}
               </button>
@@ -196,7 +191,7 @@ export default function Home() {
               {!showCreateNew && (
                 <button
                   onClick={handleJoinGame}
-                  className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-lg text-white font-semibold transition-colors"
+                  className="w-full py-2.5 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-semibold transition-colors"
                 >
                   Join Existing Game
                 </button>
@@ -205,18 +200,22 @@ export default function Home() {
           </div>
 
           {/* Features */}
-          <div className="grid md:grid-cols-3 gap-8 mb-16">
+          <div className="grid md:grid-cols-3 gap-6 mb-16">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="glass rounded-xl p-6"
+              className="bg-surface rounded-lg border border-border elevation-low p-6"
             >
-              <div className="text-4xl mb-4">🎯</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
+              <div className="w-12 h-12 rounded bg-blue-light flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-secondary mb-2">
                 Real-Time Voting
               </h3>
-              <p className="text-gray-400">
+              <p className="text-neutral">
                 Vote and estimate issues in real-time with your team. See results at a glance.
               </p>
             </motion.div>
@@ -225,13 +224,17 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="glass rounded-xl p-6"
+              className="bg-surface rounded-lg border border-border elevation-low p-6"
             >
-              <div className="text-4xl mb-4">📋</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
+              <div className="w-12 h-12 rounded bg-blue-light flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-secondary mb-2">
                 Issue Management
               </h3>
-              <p className="text-gray-400">
+              <p className="text-neutral">
                 Manage all your issues in one place. Track voting progress and consensus.
               </p>
             </motion.div>
@@ -240,68 +243,72 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="glass rounded-xl p-6"
+              className="bg-surface rounded-lg border border-border elevation-low p-6"
             >
-              <div className="text-4xl mb-4">☕</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
+              <div className="w-12 h-12 rounded bg-green-light flex items-center justify-center mb-4">
+                <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-secondary mb-2">
                 Fun & Engaging
               </h3>
-              <p className="text-gray-400">
+              <p className="text-neutral">
                 Beautiful card animations and coffee break options make estimation enjoyable.
               </p>
             </motion.div>
           </div>
 
           {/* How It Works */}
-          <div className="glass rounded-2xl p-8 mb-16">
-            <h2 className="text-3xl font-bold text-white mb-8">
+          <div className="bg-surface rounded-lg border border-border elevation-medium p-8 mb-16">
+            <h2 className="text-3xl font-bold text-secondary mb-8">
               How It Works
             </h2>
             <div className="grid md:grid-cols-4 gap-6">
               <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">
+                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white text-xl font-bold mx-auto mb-4">
                   1
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
+                <h3 className="text-base font-semibold text-secondary mb-2">
                   Create Game
                 </h3>
-                <p className="text-gray-400 text-sm">
+                <p className="text-neutral text-sm">
                   Start a new game and get a shareable URL
                 </p>
               </div>
 
               <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">
+                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white text-xl font-bold mx-auto mb-4">
                   2
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
+                <h3 className="text-base font-semibold text-secondary mb-2">
                   Invite Team
                 </h3>
-                <p className="text-gray-400 text-sm">
+                <p className="text-neutral text-sm">
                   Share the URL with your team members
                 </p>
               </div>
 
               <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-accent flex items-center justify-center text-dark text-2xl font-bold mx-auto mb-4">
+                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white text-xl font-bold mx-auto mb-4">
                   3
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
+                <h3 className="text-base font-semibold text-secondary mb-2">
                   Vote & Discuss
                 </h3>
-                <p className="text-gray-400 text-sm">
+                <p className="text-neutral text-sm">
                   Vote on issues and discuss until consensus
                 </p>
               </div>
 
               <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4">
+                <div className="w-12 h-12 rounded-full bg-success flex items-center justify-center text-white text-xl font-bold mx-auto mb-4">
                   4
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
+                <h3 className="text-base font-semibold text-secondary mb-2">
                   Estimate
                 </h3>
-                <p className="text-gray-400 text-sm">
+                <p className="text-neutral text-sm">
                   Reach consensus and move to the next issue
                 </p>
               </div>
@@ -311,8 +318,8 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="glass border-t border-white/10 py-8">
-        <div className="container mx-auto px-4 text-center text-gray-400">
+      <footer className="border-t border-border bg-surface py-6">
+        <div className="container mx-auto px-4 text-center text-neutral text-sm">
           <p>&copy; 2024 Planning Poker Online. Built for agile teams.</p>
         </div>
       </footer>

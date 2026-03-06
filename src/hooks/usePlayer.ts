@@ -61,6 +61,11 @@ export function usePlayer() {
     localStorage.setItem(AUTO_GENERATED_KEY, 'false')
   }, [])
 
+  const syncPlayerId = useCallback((id: string) => {
+    setPlayerId(id)
+    localStorage.setItem(PLAYER_STORAGE_KEY, id)
+  }, [])
+
   const clearPlayer = useCallback(() => {
     setPlayerId(null)
     setPlayerName('')
@@ -78,6 +83,7 @@ export function usePlayer() {
     createPlayer,
     autoCreatePlayer,
     updateName,
+    syncPlayerId,
     clearPlayer,
   }
 }

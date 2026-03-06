@@ -3,27 +3,28 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --ds-background: #FAFBFC;
+  --ds-surface: #FFFFFF;
+  --ds-text: #172B4D;
+  --ds-text-subtle: #6B778C;
+  --ds-border: #DFE1E6;
+  --ds-primary: #0052CC;
+  --ds-primary-hover: #0065FF;
+  --ds-success: #36B37E;
+  --ds-warning: #FFAB00;
+  --ds-error: #FF5630;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--ds-background);
+  color: var(--ds-text);
 }
 
 @layer utilities {
@@ -73,23 +74,48 @@ body {
   transform: rotateY(180deg);
 }
 
-/* Gradient background */
+/* Jira-style gradient */
 .gradient-bg {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: linear-gradient(135deg, #0052CC 0%, #0065FF 100%);
 }
 
-/* Glass morphism */
+/* Clean surface */
 .glass {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--ds-surface);
+  border: 1px solid var(--ds-border);
+  box-shadow: 0 1px 1px rgba(9, 30, 66, 0.07), 0 0 1px rgba(9, 30, 66, 0.08);
 }
 
-/* Glow effect */
-.glow {
-  box-shadow: 0 0 20px rgba(50, 122, 207, 0.5);
+/* Elevation shadows */
+.elevation-low {
+  box-shadow: 0 1px 1px rgba(9, 30, 66, 0.07), 0 0 1px rgba(9, 30, 66, 0.08);
 }
 
-.glow-hover:hover {
-  box-shadow: 0 0 30px rgba(120, 182, 255, 0.8);
+.elevation-medium {
+  box-shadow: 0 1px 2px rgba(9, 30, 66, 0.1), 0 2px 4px rgba(9, 30, 66, 0.1);
+}
+
+.elevation-high {
+  box-shadow: 0 4px 8px rgba(9, 30, 66, 0.07), 0 12px 24px rgba(9, 30, 66, 0.1);
+}
+
+/* Button styles */
+.btn-primary {
+  background-color: var(--ds-primary);
+  color: white;
+  transition: background-color 0.1s ease-out;
+}
+
+.btn-primary:hover {
+  background-color: var(--ds-primary-hover);
+}
+
+.btn-secondary {
+  background-color: rgba(9, 30, 66, 0.08);
+  color: var(--ds-text);
+  transition: background-color 0.1s ease-out;
+}
+
+.btn-secondary:hover {
+  background-color: rgba(9, 30, 66, 0.13);
 }

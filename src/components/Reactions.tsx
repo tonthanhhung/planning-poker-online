@@ -52,6 +52,11 @@ const REACTIONS = [
   { emoji: '💩', label: 'Poop' },
 ]
 
+// Default image reactions (always available in quick-bar)
+const DEFAULT_IMAGE_REACTIONS = [
+  { url: '/reactions/paper.png', label: 'Paper' },
+]
+
 const RECENT_EMOJIS_KEY = 'planning_poker_recent_emojis'
 const MAX_RECENT = 8
 const DEFAULT_EMOJIS = ['👍', '❤️', '🎉']
@@ -121,6 +126,17 @@ export function ReactionPicker({ onReact, onMouseLeave }: ReactionsProps) {
             className="w-8 h-8 flex items-center justify-center text-lg hover:bg-gray-700 rounded-full transition-colors"
           >
             {emoji}
+          </button>
+        ))}
+        {/* Default image reactions */}
+        {DEFAULT_IMAGE_REACTIONS.map((img) => (
+          <button
+            key={img.url}
+            onClick={() => handleReact(img.url, true, img.url)}
+            className="w-8 h-8 flex items-center justify-center hover:bg-gray-700 rounded-full transition-colors"
+            title={img.label}
+          >
+            <img src={img.url} alt={img.label} className="w-6 h-6 object-contain" />
           </button>
         ))}
         <button

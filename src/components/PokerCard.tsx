@@ -44,12 +44,12 @@ export function PokerCard({
         whileTap={!disabled ? { scale: 0.95 } : {}}
       >
         <div className={`
-          w-full h-full rounded-lg bg-gradient-to-br from-blue-600 to-blue-800
+          w-full h-full rounded-lg bg-gradient-to-br from-primary to-blue-700
           flex items-center justify-center
-          border-2 border-blue-400 shadow-xl
-          ${isSelected ? 'ring-4 ring-yellow-400 ring-offset-2' : ''}
+          border-2 border-blue-400 shadow-md
+          ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}
         `}>
-          <div className="text-blue-300 font-bold text-xl">?</div>
+          <div className="text-blue-200 font-semibold text-xl">?</div>
         </div>
       </motion.div>
     )
@@ -61,17 +61,17 @@ export function PokerCard({
       onClick={() => !disabled && onClick?.()}
       whileHover={!disabled ? { scale: 1.05, y: -5 } : {}}
       whileTap={!disabled ? { scale: 0.95 } : {}}
-      animate={isSelected ? { y: -10 } : { y: 0 }}
+      animate={isSelected ? { y: -8 } : { y: 0 }}
     >
       <div className={`
         w-full h-full rounded-lg
         flex items-center justify-center
         border-2 transition-all duration-200
         ${isSelected 
-          ? 'bg-blue-500 border-blue-500 shadow-lg shadow-blue-200' 
-          : 'bg-white border-blue-300 hover:border-blue-400 shadow-sm'}
+          ? 'bg-primary border-primary shadow-md elevation-medium' 
+          : 'bg-surface border-border hover:border-primary shadow-sm'}
       `}>
-        <span className={`font-bold ${isSelected ? 'text-white' : 'text-blue-600'}`}>
+        <span className={`font-bold ${isSelected ? 'text-white' : 'text-secondary'}`}>
           {displayValue}
         </span>
       </div>
@@ -133,7 +133,7 @@ export function FlyingCard({ value, startRect, endRect, onComplete }: FlyingCard
       onAnimationComplete={onComplete}
     >
       <motion.div
-        className="w-full h-full rounded-lg bg-white border-2 border-blue-500 shadow-2xl flex items-center justify-center"
+        className="w-full h-full rounded-lg bg-surface border-2 border-primary shadow-2xl flex items-center justify-center"
         animate={{
           scaleY: [1, 1, 0.95, 1],
           scaleX: [1, 1, 1.05, 1],
@@ -149,7 +149,7 @@ export function FlyingCard({ value, startRect, endRect, onComplete }: FlyingCard
           times: [0, 0.5, 0.85, 1],
         }}
       >
-        <span className="font-bold text-blue-600 text-2xl">{displayValue}</span>
+        <span className="font-bold text-primary text-2xl">{displayValue}</span>
       </motion.div>
     </motion.div>
   )
