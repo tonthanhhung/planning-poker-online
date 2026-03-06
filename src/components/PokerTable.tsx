@@ -27,6 +27,11 @@ interface PokerTableProps {
   isRevealed: boolean
   isPlayerActive: (id: string) => boolean
   gameId: string
+  pendingVote?: {
+    value: number | string
+    playerId: string
+    issueId: string
+  } | null
 }
 
 // Floating-UI powered hover popover for emoji reactions
@@ -133,6 +138,7 @@ export function PokerTable({
   isRevealed,
   isPlayerActive,
   gameId,
+  pendingVote,
 }: PokerTableProps) {
   const currentVotes = currentIssueId ? votes[currentIssueId] || [] : []
   const [flyingReactions, setFlyingReactions] = useState<FlyingEmoji[]>([])
@@ -324,7 +330,9 @@ export function PokerTable({
 
   // Render a player's card (face-down or face-up)
   const renderPlayerCard = (player: Player) => {
-    const hasVoted = currentVotes.some(v => v.player_id === player.id)
+    // Check for pending vote (optimistic UI) - shows face-down card immediately
+    const hasPendingVote = pendingVote && pendingVote.playerId === player.id && pendingVote.issueId === currentIssueId
+    const hasVoted = currentVotes.some(v => v.player_id === player.id) || hasPendingVote
     const playerVote = currentVotes.find(v => v.player_id === player.id)
 
     const cardContent = (() => {

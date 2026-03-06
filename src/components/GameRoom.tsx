@@ -231,6 +231,16 @@ export function GameRoom({ gameId }: GameRoomProps) {
       endY: endPosition.y,
     })
     setSelectedCard(value)
+    
+    // Set pending vote for optimistic UI - shows face-down card immediately
+    const existingPlayer = players.find(p => p.name === playerName)
+    if (existingPlayer && currentIssue) {
+      setPendingVote({
+        value,
+        playerId: existingPlayer.id,
+        issueId: currentIssue.id,
+      })
+    }
 
     // Wait for animation to complete before submitting vote
     // The actual submission happens in handleFlyingCardComplete
@@ -290,8 +300,9 @@ export function GameRoom({ gameId }: GameRoomProps) {
       // Reset on error
       setSelectedCard(null)
     } finally {
-      // Clear flying card after submission
+      // Clear flying card and pending vote after submission
       setFlyingCard(null)
+      setPendingVote(null)
     }
   }
 
@@ -614,6 +625,7 @@ export function GameRoom({ gameId }: GameRoomProps) {
                   isRevealed={game?.status === 'revealed'}
                   isPlayerActive={isPlayerActive}
                   gameId={gameId}
+                  pendingVote={pendingVote}
                 />
               </div>
 
