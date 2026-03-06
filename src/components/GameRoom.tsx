@@ -52,13 +52,14 @@ export function GameRoom({ gameId }: GameRoomProps) {
     playerId: string
     issueId: string
   } | null>(null)
+  const [wasRemoved, setWasRemoved] = useState(false)
 
   const currentIssue = issues.find(i => i.status === 'voting') || issues[0]
   const currentVotes = useMemo(() => {
     return currentIssue ? (votes[currentIssue.id] || []) : []
   }, [currentIssue, votes])
 
-  // Check if current player has voted
+  // Check if current player has voted and detect if removed by someone else
   useEffect(() => {
     const existingPlayer = players.find(p => p.name === playerName)
     if (existingPlayer) {
@@ -69,8 +70,12 @@ export function GameRoom({ gameId }: GameRoomProps) {
       if (playerHasVoted && pendingVote && pendingVote.playerId === existingPlayer.id) {
         setPendingVote(null)
       }
+    } else if (playerName && !wasRemoved) {
+      // Player name exists but player not in list - they were removed by someone else
+      console.log('Detected player removal by facilitator')
+      setWasRemoved(true)
     }
-  }, [currentVotes, players, playerName, pendingVote])
+  }, [currentVotes, players, playerName, pendingVote, wasRemoved])
 
   // Reset voting state when issue changes
   useEffect(() => {
@@ -78,8 +83,10 @@ export function GameRoom({ gameId }: GameRoomProps) {
     setHasVoted(false)
   }, [currentIssue?.id])
 
-  // Auto-join game if player ID exists
+  // Auto-join game if player ID exists (but not if they were just removed)
   useEffect(() => {
+    if (wasRemoved) return // Don't rejoin if player was removed
+    
     if (playerId && gameId && !players.find(p => p.id === playerId)) {
       // Check if we already have a player in this game with our name
       const existingPlayer = players.find(p => p.name === playerName)
@@ -89,7 +96,7 @@ export function GameRoom({ gameId }: GameRoomProps) {
         syncPlayerId(existingPlayer.id)
         return // Don't create a new player
       }
-      
+
       // Player not in game yet, add them
       supabase
         .from('players')
@@ -109,7 +116,12 @@ export function GameRoom({ gameId }: GameRoomProps) {
           }
         })
     }
-  }, [playerId, playerName, gameId, players, syncPlayerId])
+  }, [playerId, playerName, gameId, players, syncPlayerId, wasRemoved])
+  
+  // Reset wasRemoved when game changes
+  useEffect(() => {
+    setWasRemoved(false)
+  }, [gameId])
 
   const handleUpdateName = async () => {
     const newName = nameEditInput.trim()
@@ -180,6 +192,11 @@ export function GameRoom({ gameId }: GameRoomProps) {
     }
 
     if (confirm('Are you sure you want to remove this player?')) {
+      // Mark as removed if removing self to prevent auto-rejoin
+      if (isSelf) {
+        setWasRemoved(true)
+      }
+      
       const { error } = await supabase
         .from('players')
         .delete()
@@ -188,6 +205,10 @@ export function GameRoom({ gameId }: GameRoomProps) {
       if (error) {
         console.error('Failed to remove player:', error)
         alert('Failed to remove player')
+        // Reset wasRemoved on error so they can rejoin if needed
+        if (isSelf) {
+          setWasRemoved(false)
+        }
       }
     }
   }

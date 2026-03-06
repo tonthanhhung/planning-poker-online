@@ -82,10 +82,13 @@ export function useGame(gameId: string | null): UseGameState & {
       if (table === 'games' && newRow) {
         setState(prev => ({ ...prev, game: newRow as Game }))
       } else if (table === 'players') {
+        console.log('Player event:', { event, payload, old: payload.old, new: newRow })
         if (event === 'DELETE') {
+          const deletedId = payload.old?.id
+          console.log('Removing player:', deletedId)
           setState(prev => ({
             ...prev,
-            players: prev.players.filter(p => p.id !== payload.old.id),
+            players: prev.players.filter(p => p.id !== deletedId),
           }))
         } else {
           setState(prev => ({
