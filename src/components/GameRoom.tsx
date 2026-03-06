@@ -233,7 +233,6 @@ export function GameRoom({ gameId }: GameRoomProps) {
     setSelectedCard(value)
     
     // Set pending vote for optimistic UI - shows face-down card immediately
-    const existingPlayer = players.find(p => p.name === playerName)
     if (existingPlayer && currentIssue) {
       setPendingVote({
         value,
