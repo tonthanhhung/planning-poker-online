@@ -216,9 +216,10 @@ function seededRandom(seed: number) {
 }
 
 // --- physics constants ---
-const GRAVITY = 1400       // px/s², slightly higher gravity for more realistic falling
-const BOUNCE_DAMPING = 0.55 // velocity multiplied by this after each bounce (more bounce for realistic feel)
+const GRAVITY = 1200       // px/s², slightly lower gravity for more visible bounces
+const BOUNCE_DAMPING = 0.5 // velocity multiplied by this after each bounce
 const MAX_BOUNCES = 3      // Allow more bounces for better realism
+const MIN_BOUNCE_VELOCITY = 15 // minimum velocity to continue bouncing
 const SETTLE_FADE_DURATION = 400 // ms, increased for smoother fade
 const MAX_SETTLED_PER_CARD = 5
 
@@ -256,13 +257,20 @@ function FlyingEmojiElement({ reaction, onComplete }: {
         ey = rect.top + rect.height / 2
       }
     }
-    // offset so the CENTER of the emoji hits the target, not its top-left corner
-    ex -= halfW
-    ey -= halfH
-
     // also offset start coordinates for centering
     const sx = reaction.startX - halfW
     const sy = reaction.startY - halfH
+    
+    // offset so the emoji hits the EDGE of the card (not center)
+    const cardWidth = 46
+    const cameFromLeft = sx < ex
+    
+    if (cameFromLeft) {
+      ex -= halfW + cardWidth/2
+    } else {
+      ex -= halfW - cardWidth/2
+    }
+    ey -= halfH
 
     // control point: midpoint offset upward by arcHeight, with some horizontal jitter
     const cx = (sx + ex) / 2 + (rand() - 0.5) * 150 // Increased jitter for more natural look
@@ -279,9 +287,15 @@ function FlyingEmojiElement({ reaction, onComplete }: {
         let bounceCount = 0
         let bounceBaseY = ey
         let bounceVelocity = 0
+        let bounceVelocityX = 0  // horizontal velocity for bouncing away
+        let bounceBaseX = ex     // starting X for bounce
         let settleStartTime = 0
         let currentX = ex
         let currentY = ey
+        
+        // Determine bounce direction: bounce BACK toward where it came from
+        // If came from left, bounce left (-), if from right, bounce right (+)
+        const bounceDirection = cameFromLeft ? -1 : 1
 
         const impactDuration = 100 // Longer impact for smoother effect
         const dropDistance = 15 + rand() * 15 // More varied drop distance
@@ -359,40 +373,49 @@ function FlyingEmojiElement({ reaction, onComplete }: {
           bounceCount = 0
           // Realistic bounce physics: use the impact momentum to determine bounce height
           bounceBaseY = currentY
-          // Calculate initial bounce velocity based on the impact energy
-          bounceVelocity = -(60 + rand() * 40) // Stronger bounce for more realistic physics
+          bounceBaseX = currentX
+          // Much stronger initial bounce velocity for visible effect (200-350 px/s upward)
+          bounceVelocity = -(200 + rand() * 150)
+          // Add horizontal velocity to bounce AWAY from the card (80-150 px/s)
+          bounceVelocityX = bounceDirection * (80 + rand() * 70)
           settleStartTime = elapsed
         }
       } else if (phase === 'bounce1' || phase === 'bounce2') {
         const bounceElapsed = (elapsed - settleStartTime) / 1000
         // Physics for bounce: apply gravity to the bounce velocity
         const currentVel = bounceVelocity + GRAVITY * bounceElapsed
-        // Calculate new position using kinematic equation
-        const currentPos = bounceBaseY + bounceVelocity * bounceElapsed + 0.5 * GRAVITY * bounceElapsed * bounceElapsed
+        // Calculate new Y position using kinematic equation
+        const currentPosY = bounceBaseY + bounceVelocity * bounceElapsed + 0.5 * GRAVITY * bounceElapsed * bounceElapsed
+        // Calculate new X position (horizontal movement away from card)
+        const currentPosX = bounceBaseX + bounceVelocityX * bounceElapsed
 
-        // Check if it has hit the target surface again (currentPos >= ey)
-        if (currentPos >= ey) {
+        // Check if it has hit the target surface again (currentPosY >= ey)
+        if (currentPosY >= ey) {
           // Reset position to target Y (simulate contact with surface)
           currentY = ey
-          
-          // Apply damping to the velocity (energy loss during impact)
+
+          // Apply damping to the velocities (energy loss during impact)
           bounceVelocity = -currentVel * BOUNCE_DAMPING
-          
+          bounceVelocityX = bounceVelocityX * 0.7 // lose some horizontal speed on each bounce
+
           bounceCount++
-          
+
           // Check if bounce should end
-          if (Math.abs(bounceVelocity) < 30 || bounceCount >= MAX_BOUNCES) {
+          if (Math.abs(bounceVelocity) < MIN_BOUNCE_VELOCITY || bounceCount >= MAX_BOUNCES) {
             phase = 'settle'
             settleStartTime = elapsed
             currentY = ey // Ensure it stays at the target Y
           } else {
             // Prepare for next bounce
             bounceBaseY = currentY
+            bounceBaseX = currentPosX
             settleStartTime = elapsed
+            // Stay in bounce1 phase for all bounces - no need for bounce2 phase
           }
         } else {
           // Continue the bounce trajectory
-          currentY = currentPos
+          currentY = currentPosY
+          currentX = currentPosX
         }
 
         // Apply rotation during bounce for more realistic movement
@@ -404,11 +427,6 @@ function FlyingEmojiElement({ reaction, onComplete }: {
           el.style.height = '50px'
         } else {
           el.style.transform = `translate(${currentX}px, ${currentY}px) scale(1.0) rotate(${bounceRot}deg)`
-        }
-
-        if (phase === 'bounce1' && bounceCount >= 1) {
-          phase = 'bounce2' // Move to next bounce phase if applicable
-          settleStartTime = elapsed
         }
       } else if (phase === 'settle') {
         const settleElapsed = elapsed - settleStartTime
