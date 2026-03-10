@@ -200,9 +200,17 @@ export function PokerTable({
   useEffect(() => {
     if (!gameId || !currentPlayerId) return
 
-    const socketInstance = io({
+    // Explicitly construct the socket URL for production compatibility
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const host = window.location.host
+    const socketUrl = `${protocol}//${host}`
+
+    const socketInstance = io(socketUrl, {
       path: '/api/socket',
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'], // Allow fallback to polling
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     })
 
     // Join the game room when connected
@@ -213,6 +221,18 @@ export function PokerTable({
         playerId: currentPlayerId,
         playerName: currentPlayerName,
       })
+    })
+
+    socketInstance.on('connect_error', (err) => {
+      console.error('Socket connection error:', err.message)
+    })
+
+    socketInstance.on('disconnect', (reason) => {
+      console.log('Socket disconnected:', reason)
+    })
+
+    socketInstance.on('reconnect', (attemptNumber) => {
+      console.log('Socket reconnected after', attemptNumber, 'attempts')
     })
 
     socketInstance.on('reaction', (data: { emoji: string; playerName: string; targetPlayerId?: string; isImage?: boolean; imageUrl?: string }) => {

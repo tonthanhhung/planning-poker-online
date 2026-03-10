@@ -32,6 +32,9 @@ export class PresenceServer {
       socket.on('join-game', ({ gameId, playerId, playerName }) => {
         socket.join(gameId)
         
+        console.log(`Socket ${socket.id} joined game ${gameId} as ${playerName} (${playerId})`)
+        console.log(`Room ${gameId} now has ${this.io?.sockets.adapter.rooms.get(gameId)?.size || 0} clients`)
+        
         const presence: PlayerPresence = {
           playerId,
           playerName,
@@ -60,8 +63,13 @@ export class PresenceServer {
 
       // Handle reactions
       socket.on('reaction', ({ gameId, emoji, playerName, targetPlayerId, isImage, imageUrl }) => {
+        console.log(`Reaction from ${playerName} in game ${gameId}: ${emoji} -> ${targetPlayerId || 'random'}`)
         // Broadcast reaction to all players in the game (including targetPlayerId, isImage, imageUrl)
-        this.io?.to(gameId).emit('reaction', { emoji, playerName, targetPlayerId, isImage, imageUrl })
+        const room = this.io?.to(gameId)
+        if (room) {
+          room.emit('reaction', { emoji, playerName, targetPlayerId, isImage, imageUrl })
+          console.log(`Broadcasted reaction to game ${gameId}`)
+        }
       })
 
       // Handle card placement animations
