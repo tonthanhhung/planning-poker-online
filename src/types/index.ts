@@ -21,6 +21,7 @@ export interface Player {
   name: string;
   avatar?: string;
   is_facilitator: boolean;
+  is_viewer: boolean;
   joined_at: string;
 }
 

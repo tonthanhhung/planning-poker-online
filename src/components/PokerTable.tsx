@@ -1,6 +1,6 @@
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { FlyingReactions, ReactionPicker, type FlyingEmoji } from './Reactions'
 import type { Player } from '@/types'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
@@ -145,16 +145,6 @@ export function PokerTable({
   const [flyingReactions, setFlyingReactions] = useState<FlyingEmoji[]>([])
   const [socket, setSocket] = useState<Socket | null>(null)
 
-  // flying cards from other players
-  const [flyingCards, setFlyingCards] = useState<Array<{
-    id: string
-    value: number | string
-    startX: number
-    startY: number
-    endX: number
-    endY: number
-  }>>([])
-
   // spam queue: stagger reactions by 50-100ms
   const reactionQueueRef = useRef<{ emoji: string; targetPlayerId?: string; fromSocket?: boolean; isImage?: boolean; imageUrl?: string }[]>([])
   const processingRef = useRef(false)
@@ -208,11 +198,21 @@ export function PokerTable({
 
   // Setup reaction socket
   useEffect(() => {
-    if (!gameId) return
+    if (!gameId || !currentPlayerId) return
 
     const socketInstance = io({
       path: '/api/socket',
       transports: ['websocket'],
+    })
+
+    // Join the game room when connected
+    socketInstance.on('connect', () => {
+      console.log('Socket connected, joining game:', gameId)
+      socketInstance.emit('join-game', {
+        gameId,
+        playerId: currentPlayerId,
+        playerName: currentPlayerName,
+      })
     })
 
     socketInstance.on('reaction', (data: { emoji: string; playerName: string; targetPlayerId?: string; isImage?: boolean; imageUrl?: string }) => {
@@ -228,44 +228,14 @@ export function PokerTable({
       processQueue()
     })
 
-    // Listen for other players' card placement animations
-    socketInstance.on('card-placed', (data: { playerId: string; playerName: string; cardValue: number | string }) => {
-      if (data.playerName === currentPlayerName) return // Skip own animation
-
-      // Find the player's card slot
-      const targetEl = document.querySelector(`[data-player-card="${data.playerId}"]`)
-      if (!targetEl) return
-
-      const slotRect = targetEl.getBoundingClientRect()
-      const endX = slotRect.left + slotRect.width / 2 - 28
-      const endY = slotRect.top + slotRect.height / 2 - 40
-
-      // Start from a position near the bottom center (hand area approximation)
-      const startX = window.innerWidth / 2 + (Math.random() - 0.5) * 100
-      const startY = window.innerHeight - 100
-
-      const flyingCard = {
-        id: Math.random().toString(36).substr(2, 9),
-        value: data.cardValue,
-        startX,
-        startY,
-        endX,
-        endY,
-      }
-
-      setFlyingCards(prev => [...prev, flyingCard])
-
-      // Remove after animation completes
-      setTimeout(() => {
-        setFlyingCards(prev => prev.filter(c => c.id !== flyingCard.id))
-      }, 900)
-    })
+    // Note: Card placement animations are intentionally NOT broadcast to keep votes secret
+    // Only the player who voted sees their own card animation
 
     setSocket(socketInstance)
     return () => {
       socketInstance.disconnect()
     }
-  }, [gameId, players, currentPlayerName, processQueue])
+  }, [gameId, players, currentPlayerName, currentPlayerId, processQueue])
 
   const handleReact = useCallback((emoji: string, targetPlayerId?: string, isImage?: boolean, imageUrl?: string) => {
     if (socket) {
@@ -348,6 +318,21 @@ export function PokerTable({
   
   // Render a player's card (face-down or face-up)
   const renderPlayerCard = (player: Player) => {
+    // Viewers don't have cards - show a viewer icon instead
+    if (player.is_viewer) {
+      return (
+        <div
+          data-player-card={player.id}
+          className="w-[46px] h-[64px] rounded-lg bg-purple-50 border-2 border-purple-200 shadow-sm flex items-center justify-center relative group"
+        >
+          <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        </div>
+      )
+    }
+
     // Check for pending vote (optimistic UI) - shows face-down card immediately
     const hasPendingVote = pendingVote && pendingVote.playerId === player.id && pendingVote.issueId === currentIssueId
     const hasVoted = currentVotes.some(v => v.player_id === player.id) || hasPendingVote
@@ -417,6 +402,7 @@ export function PokerTable({
   // Top/Bottom players
   const renderVerticalPlayer = (player: Player, position: 'top' | 'bottom') => {
     const isCurrentPlayer = player.name === currentPlayerName
+    const isViewer = player.is_viewer
 
     return (
       <motion.div
@@ -434,6 +420,11 @@ export function PokerTable({
             <span className={`text-xs font-semibold block text-center ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
               {player.name}
             </span>
+            {isViewer && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">
+                Viewer
+              </span>
+            )}
             {position === 'bottom' && renderPlayerCard(player)}
           </div>
         </PlayerPopover>
@@ -444,6 +435,7 @@ export function PokerTable({
   // Left/Right players
   const renderHorizontalPlayer = (player: Player, position: 'left' | 'right') => {
     const isCurrentPlayer = player.name === currentPlayerName
+    const isViewer = player.is_viewer
 
     return (
       <motion.div
@@ -459,18 +451,32 @@ export function PokerTable({
           <div className="flex items-center gap-2">
             {position === 'left' && (
               <>
-                <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
-                  {player.name}
-                </span>
+                <div className="flex flex-col items-end">
+                  <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
+                    {player.name}
+                  </span>
+                  {isViewer && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">
+                      Viewer
+                    </span>
+                  )}
+                </div>
                 {renderPlayerCard(player)}
               </>
             )}
             {position === 'right' && (
               <>
                 {renderPlayerCard(player)}
-                <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
-                  {player.name}
-                </span>
+                <div className="flex flex-col items-start">
+                  <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
+                    {player.name}
+                  </span>
+                  {isViewer && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">
+                      Viewer
+                    </span>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -544,50 +550,6 @@ export function PokerTable({
   return (
     <>
       <FlyingReactions reactions={flyingReactions} />
-      
-      {/* Flying cards from other players */}
-      <AnimatePresence>
-        {flyingCards.map(card => (
-          <motion.div
-            key={card.id}
-            className="fixed w-14 h-20 z-40 pointer-events-none"
-            initial={{
-              x: card.startX,
-              y: card.startY,
-              scale: 1.1,
-              rotate: (Math.random() - 0.5) * 6,
-            }}
-            animate={{
-              x: [card.startX, (card.startX + card.endX) / 2, card.endX],
-              y: [card.startY, Math.min(card.startY, card.endY) - 80, card.endY],
-              scale: [1.1, 1.15, 1],
-              rotate: [0, (Math.random() - 0.5) * 4, 0],
-            }}
-            exit={{ opacity: 0 }}
-            transition={{
-              duration: 0.85,
-              times: [0, 0.5, 1],
-              ease: [0.25, 0.46, 0.45, 0.94],
-            }}
-          >
-            <motion.div
-              className="w-full h-full rounded-lg bg-surface border-2 border-primary shadow-xl flex items-center justify-center"
-              animate={{
-                scaleY: [1, 1, 0.96, 1],
-                scaleX: [1, 1, 1.04, 1],
-              }}
-              transition={{
-                duration: 0.85,
-                times: [0, 0.7, 0.85, 1],
-              }}
-            >
-              <span className="font-bold text-primary text-2xl">
-                {typeof card.value === 'number' ? card.value : '☕'}
-              </span>
-            </motion.div>
-          </motion.div>
-        ))}
-      </AnimatePresence>
 
       <div className="w-full max-w-4xl mx-auto py-4">
         <div className="grid grid-cols-[auto_1fr_auto] grid-rows-[auto_1fr_auto] gap-4 items-center justify-items-center">

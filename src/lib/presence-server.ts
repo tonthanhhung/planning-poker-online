@@ -59,9 +59,9 @@ export class PresenceServer {
       })
 
       // Handle reactions
-      socket.on('reaction', ({ gameId, emoji, playerName }) => {
-        // Broadcast reaction to all players in the game
-        this.io?.to(gameId).emit('reaction', { emoji, playerName })
+      socket.on('reaction', ({ gameId, emoji, playerName, targetPlayerId, isImage, imageUrl }) => {
+        // Broadcast reaction to all players in the game (including targetPlayerId, isImage, imageUrl)
+        this.io?.to(gameId).emit('reaction', { emoji, playerName, targetPlayerId, isImage, imageUrl })
       })
 
       // Handle card placement animations

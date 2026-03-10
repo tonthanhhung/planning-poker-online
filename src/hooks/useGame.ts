@@ -113,9 +113,12 @@ export function useGame(gameId: string | null): UseGameState & {
           }))
         }
       } else if (table === 'votes') {
-        // Reload votes for the affected issue
-        if (newRow) {
-          const issueId = (newRow as Vote).issue_id
+        // Reload votes for the affected issue on any vote change (insert, update, delete)
+        const issueId = newRow 
+          ? (newRow as Vote).issue_id 
+          : payload.old?.issue_id
+        
+        if (issueId) {
           const { data: issueVotes } = await supabase
             .from('votes')
             .select('*')

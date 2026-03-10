@@ -7,6 +7,7 @@ import { generateFunnyName } from '@/lib/funnyNames'
 const PLAYER_STORAGE_KEY = 'planning_poker_player_id'
 const PLAYER_NAME_KEY = 'planning_poker_player_name'
 const AUTO_GENERATED_KEY = 'planning_poker_auto_generated_name'
+const PLAYER_IS_VIEWER_KEY = 'planning_poker_is_viewer'
 
 export function usePlayer() {
   const [playerId, setPlayerId] = useState<string | null>(null)

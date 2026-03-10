@@ -1,4 +1,3 @@
-import { NextApiRequest, NextApiResponse } from 'next'
 import { Server as NetServer } from 'http'
 import { Server as SocketIOServer } from 'socket.io'
 import { getPresenceServer } from '@/lib/presence-server'

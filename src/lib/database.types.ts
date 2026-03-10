@@ -45,6 +45,7 @@ export interface Database {
           name: string
           avatar: string | null
           is_facilitator: boolean
+          is_viewer: boolean
           joined_at: string
         }
         Insert: {
@@ -53,6 +54,7 @@ export interface Database {
           name: string
           avatar?: string | null
           is_facilitator?: boolean
+          is_viewer?: boolean
           joined_at?: string
         }
         Update: {
@@ -61,6 +63,7 @@ export interface Database {
           name?: string
           avatar?: string | null
           is_facilitator?: boolean
+          is_viewer?: boolean
           joined_at?: string
         }
       }

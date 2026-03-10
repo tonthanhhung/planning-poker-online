@@ -53,8 +53,10 @@ export default function Home() {
 
     setIsCreating(true)
     try {
-      const gameId = uuidv4().slice(0, 8)
+      const gameId = uuidv4()
 
+      console.log('Creating game with ID:', gameId)
+      
       const { data, error } = await supabase
         .from('games')
         .insert({
@@ -81,7 +83,13 @@ export default function Home() {
       router.push(`/game/${gameId}`)
     } catch (error) {
       console.error('Failed to create game:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      let errorMessage = 'Unknown error'
+      if (error instanceof Error) {
+        errorMessage = error.message
+      } else if (typeof error === 'object' && error !== null) {
+        // Supabase errors have a message property
+        errorMessage = (error as any).message || JSON.stringify(error)
+      }
       alert(`Failed to create game: ${errorMessage}`)
     } finally {
       setIsCreating(false)
