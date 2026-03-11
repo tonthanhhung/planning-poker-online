@@ -82,10 +82,36 @@ export function useGame(
   const [error, setError] = useState<string | null>(null)
   
   // Track total revotes across all issues (incremented when votes are reset during voting)
-  const [totalRevotes, setTotalRevotes] = useState(0)
+  const [totalRevotes, setTotalRevotes] = useState(() => {
+    if (typeof window !== 'undefined' && gameId) {
+      const stored = localStorage.getItem(`revotes_${gameId}`)
+      return stored ? parseInt(stored, 10) : 0
+    }
+    return 0
+  })
+  
+  // Persist totalRevotes to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && gameId) {
+      localStorage.setItem(`revotes_${gameId}`, totalRevotes.toString())
+    }
+  }, [totalRevotes, gameId])
   
   // Track all historical votes for streak calculation (persists across reveals)
-  const [allIssueStats, setAllIssueStats] = useState<IssueVoteStats[]>([])
+  const [allIssueStats, setAllIssueStats] = useState<IssueVoteStats[]>(() => {
+    if (typeof window !== 'undefined' && gameId) {
+      const stored = localStorage.getItem(`issueStats_${gameId}`)
+      return stored ? JSON.parse(stored) : []
+    }
+    return []
+  })
+  
+  // Persist allIssueStats to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && gameId) {
+      localStorage.setItem(`issueStats_${gameId}`, JSON.stringify(allIssueStats))
+    }
+  }, [allIssueStats, gameId])
   
   // Get current issue ID (the one with status 'voting')
   const currentIssueId = useMemo(() => {
@@ -112,13 +138,13 @@ export function useGame(
     allIssueStats.forEach(issueStats => {
       if (!issueStats.mode) return
       
-      // Get all votes for this issue from the votes state
-      const issueVotes = votes[issueStats.issueId] || []
+      // Use stored playerVotes from allIssueStats (persists after revotes)
+      const playerVotes = issueStats.playerVotes || []
       
-      issueVotes.forEach(vote => {
+      playerVotes.forEach(vote => {
         if (vote.points < 0) return // Skip coffee breaks
         
-        const playerStats = statsMap.get(vote.player_id)
+        const playerStats = statsMap.get(vote.playerId)
         if (playerStats) {
           playerStats.totalVotes += 1
           // Check if this player's vote matches the mode (majority)
@@ -145,7 +171,7 @@ export function useGame(
       })
     
     return result
-  }, [allIssueStats, players, votes])
+  }, [allIssueStats, players])
   
   // Get top 2 streak leaders
   const topStreakLeaders = useMemo(() => streakStats.slice(0, 2), [streakStats])
@@ -411,6 +437,10 @@ export function useGame(
               modeCount: distribution.find(d => d.value === mode)?.count || 0,
               distribution,
               totalVotes: numericVotes.length,
+              // Store actual votes with player IDs for streak calculation
+              playerVotes: currentVotesForIssue
+                .filter(v => v.points >= 0)
+                .map(v => ({ playerId: v.player_id, points: v.points })),
             }
             
             if (existingIndex >= 0) {

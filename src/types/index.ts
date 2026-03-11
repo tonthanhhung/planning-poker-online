@@ -83,4 +83,5 @@ export interface IssueVoteStats {
   modeCount: number;
   distribution: VoteDistribution[];
   totalVotes: number;
+  playerVotes?: { playerId: string; points: number }[];
 }
