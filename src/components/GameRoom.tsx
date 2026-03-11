@@ -303,10 +303,11 @@ export function GameRoom({ gameId }: GameRoomProps) {
     if (!currentIssue) return
     await resetVotesSocket(currentIssue.id)
     await setStatus('voting')
-    // Clear local votes immediately to update UI
-    setVotes(prev => ({ ...prev, [currentIssue.id]: [] }))
+    // Note: votes will be cleared when server broadcasts 'votes-reset' event
+    // No need to clear locally as it causes race condition
     setSelectedCard(null)
     setHasVoted(false)
+    setPendingVote(null)
   }
 
   const handleNextIssue = async () => {
