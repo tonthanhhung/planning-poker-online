@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { io } from 'socket.io-client'
 import { v4 as uuidv4 } from 'uuid'
 
 const LAST_GAME_ID_KEY = 'planning_poker_last_game_id'
@@ -16,24 +16,34 @@ export default function Home() {
   const [isCreating, setIsCreating] = useState(false)
   const [isCheckingLastGame, setIsCheckingLastGame] = useState(true)
   const [showCreateNew, setShowCreateNew] = useState(false)
+  const [socket, setSocket] = useState<ReturnType<typeof io> | null>(null)
+
+  useEffect(() => {
+    // Initialize socket connection
+    const socketInstance = io({
+      path: '/api/socket',
+      transports: ['websocket', 'polling'],
+    })
+    setSocket(socketInstance)
+
+    return () => {
+      socketInstance.disconnect()
+    }
+  }, [])
 
   useEffect(() => {
     const lastGameId = localStorage.getItem(LAST_GAME_ID_KEY)
-    if (lastGameId && !showCreateNew) {
+    if (lastGameId && !showCreateNew && socket) {
       const checkGame = async () => {
         try {
-          const { data } = await supabase
-            .from('games')
-            .select('id')
-            .eq('id', lastGameId)
-            .single()
-          
-          if (data) {
-            router.push(`/game/${lastGameId}`)
-          } else {
-            localStorage.removeItem(LAST_GAME_ID_KEY)
-            setIsCheckingLastGame(false)
-          }
+          socket.emit('get-game', { gameId: lastGameId }, (response: any) => {
+            if (response.success) {
+              router.push(`/game/${lastGameId}`)
+            } else {
+              localStorage.removeItem(LAST_GAME_ID_KEY)
+              setIsCheckingLastGame(false)
+            }
+          })
         } catch {
           setIsCheckingLastGame(false)
         }
@@ -42,56 +52,36 @@ export default function Home() {
     } else {
       setIsCheckingLastGame(false)
     }
-  }, [router, showCreateNew])
+  }, [router, showCreateNew, socket])
 
   const saveLastGameId = (gameId: string) => {
     localStorage.setItem(LAST_GAME_ID_KEY, gameId)
   }
 
   const handleCreateGame = async () => {
-    if (!gameName.trim()) return
+    if (!gameName.trim() || !socket) return
 
     setIsCreating(true)
     try {
-      const gameId = uuidv4()
-
-      console.log('Creating game with ID:', gameId)
+      console.log('Creating game:', gameName.trim())
       
-      const { data, error } = await supabase
-        .from('games')
-        .insert({
-          id: gameId,
-          name: gameName.trim(),
-          created_by: 'anonymous',
-          status: 'lobby',
-          settings: {
-            maxVotes: 9,
-            autoReveal: false,
-            anonymousVotes: false,
-          },
-        })
-        .select()
-        .single()
-
-      if (error) {
-        console.error('Supabase error:', error)
-        throw error
-      }
-
-      console.log('Game created:', data)
-      saveLastGameId(gameId)
-      router.push(`/game/${gameId}`)
+      socket.emit('create-game', {
+        name: gameName.trim(),
+        createdBy: 'anonymous',
+      }, (response: any) => {
+        if (response.success) {
+          console.log('Game created:', response.game)
+          saveLastGameId(response.game.id)
+          router.push(`/game/${response.game.id}`)
+        } else {
+          console.error('Failed to create game:', response.error)
+          alert(`Failed to create game: ${response.error}`)
+          setIsCreating(false)
+        }
+      })
     } catch (error) {
       console.error('Failed to create game:', error)
-      let errorMessage = 'Unknown error'
-      if (error instanceof Error) {
-        errorMessage = error.message
-      } else if (typeof error === 'object' && error !== null) {
-        // Supabase errors have a message property
-        errorMessage = (error as any).message || JSON.stringify(error)
-      }
-      alert(`Failed to create game: ${errorMessage}`)
-    } finally {
+      alert(`Failed to create game: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setIsCreating(false)
     }
   }

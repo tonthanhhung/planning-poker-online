@@ -1,57 +1,46 @@
 # syntax = docker/dockerfile:1
 
-# Adjust NODE_VERSION as desired
 ARG NODE_VERSION=20
 FROM node:${NODE_VERSION}-slim as base
 
-LABEL fly_launch_runtime="Next.js"
-
-# Next.js app lives here
 WORKDIR /app
 
-# Set production environment
 ENV NODE_ENV="production"
-ARG NEXT_PUBLIC_GIT_COMMIT
-ENV NEXT_PUBLIC_GIT_COMMIT=${NEXT_PUBLIC_GIT_COMMIT}
 ARG NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 
-# Install packages needed to build node modules
 RUN apt-get update -qq && \
     apt-get install -y build-essential pkg-config python-is-python3
 
-# Install node modules
 COPY package-lock.json package.json ./
 RUN npm ci --include=dev
 
-# Copy application code
 COPY . .
-
-# Build application
 RUN npm run build
 
-# Remove development dependencies
-RUN npm prune --omit=dev
-
-# Final stage for app image
 FROM node:${NODE_VERSION}-slim
 
-# Install packages needed for deployment
 RUN apt-get update -qq && \
     apt-get install -y openssl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy built application
+# Copy everything needed for the TypeScript server
 COPY --from=base /app/public ./public
-COPY --from=base /app/.next/standalone ./
-COPY --from=base /app/.next/static ./.next/static
+COPY --from=base /app/.next ./.next
+COPY --from=base /app/src ./src
+COPY --from=base /app/node_modules ./node_modules
+COPY --from=base /app/package.json ./package.json
+COPY --from=base /app/server.ts ./server.ts
+COPY --from=base /app/tsconfig.json ./tsconfig.json
 
-# Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
-CMD ["node", "server.js"]
+ENV NODE_ENV="production"
+
+# Use tsx to run TypeScript server
+CMD ["./node_modules/.bin/tsx", "server.ts"]

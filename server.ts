@@ -1,7 +1,7 @@
 import { createServer } from 'http'
 import { parse } from 'url'
 import next from 'next'
-import { getPresenceServer } from '@/lib/presence-server'
+import { getPresenceServer } from './src/lib/presence-server'
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = dev ? 'localhost' : '0.0.0.0'
@@ -14,6 +14,15 @@ app.prepare().then(() => {
   const server = createServer(async (req, res) => {
     try {
       const parsedUrl = parse(req.url!, true)
+      
+      // For Socket.IO requests, just end the response
+      // Socket.IO will handle the actual communication
+      if (req.url?.startsWith('/api/socket')) {
+        res.writeHead(200)
+        res.end()
+        return
+      }
+      
       await handle(req, res, parsedUrl)
     } catch (err) {
       console.error('Error occurred handling', req.url, err)
@@ -22,16 +31,19 @@ app.prepare().then(() => {
     }
   })
 
-  // Attach Socket.io presence server
+  // Attach Socket.io presence server BEFORE starting to listen
   const presenceServer = getPresenceServer()
-  presenceServer.attach(server)
+  const io = presenceServer.attach(server)
+  
+  console.log('Socket.IO attached with path:', '/api/socket')
 
   server
     .once('error', (err) => {
       console.error(err)
       process.exit(1)
     })
-    .listen(port, () => {
+    .listen(port, hostname, () => {
       console.log(`> Ready on http://${hostname}:${port}`)
+      console.log(`> Socket.IO path: /api/socket`)
     })
 })

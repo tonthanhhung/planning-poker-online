@@ -1,158 +1,290 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase, subscribeToGame, getGame } from '@/lib/supabase'
+import { io, Socket } from 'socket.io-client'
+import { useSocket } from './useSocket'
 import type { Game, Player, Issue, GameStatus, Vote } from '@/types'
 
 interface UseGameState {
   game: Game | null
   players: Player[]
   issues: Issue[]
-  votes: Record<string, Vote[]> // issueId -> votes
   currentPlayer: Player | null
   isLoading: boolean
   error: string | null
 }
 
-export function useGame(gameId: string | null): UseGameState & {
+interface UseGameActions {
   refreshGame: () => Promise<void>
   updateGameStatus: (status: GameStatus) => Promise<void>
+  submitVote: (issueId: string, points: number) => Promise<void>
+  createIssue: (title: string, description?: string) => Promise<void>
+  updateIssue: (issueId: string, updates: Partial<Issue>) => Promise<void>
+  deleteIssue: (issueId: string) => Promise<void>
+  setCurrentIssue: (issueId: string | null) => Promise<void>
+  resetVotes: (issueId: string) => Promise<void>
   setVotes: React.Dispatch<React.SetStateAction<Record<string, Vote[]>>>
-} {
-  const [state, setState] = useState<UseGameState>({
-    game: null,
-    players: [],
-    issues: [],
-    votes: {},
-    currentPlayer: null,
-    isLoading: true,
-    error: null,
-  })
+}
 
+export function useGame(
+  gameId: string | null,
+  playerId: string | null,
+  playerName: string
+): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean } & UseGameActions {
+  const [game, setGame] = useState<Game | null>(null)
+  const [players, setPlayers] = useState<Player[]>([])
+  const [issues, setIssues] = useState<Issue[]>([])
   const [votes, setVotes] = useState<Record<string, Vote[]>>({})
+  const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const { socket, isConnected } = useSocket(gameId, playerId, playerName)
 
   // Load initial game data
   const loadGame = useCallback(async () => {
-    if (!gameId) return
+    if (!gameId || !socket) return
 
     try {
-      const data = await getGame(gameId)
-      setState(prev => ({
-        ...prev,
-        game: data.game,
-        players: data.players,
-        issues: data.issues,
-        isLoading: false,
-      }))
+      setIsLoading(true)
+      setError(null)
 
-      // Load votes for each issue
-      const votesData: Record<string, Vote[]> = {}
-      for (const issue of data.issues) {
-        const { data: issueVotes } = await supabase
-          .from('votes')
-          .select('*')
-          .eq('game_id', gameId)
-          .eq('issue_id', issue.id)
+      socket.emit('get-game', { gameId }, (response: any) => {
+        if (response.success) {
+          console.log('Loaded game:', response)
+          setGame(response.game)
+          setPlayers(response.players)
+          setIssues(response.issues)
+          setIsLoading(false)
 
-        if (issueVotes) {
-          votesData[issue.id] = issueVotes
+          // Load votes for each issue
+          response.issues.forEach((issue: Issue) => {
+            socket.emit('get-votes', { gameId, issueId: issue.id }, (voteResponse: any) => {
+              if (voteResponse.success) {
+                setVotes(prev => ({
+                  ...prev,
+                  [issue.id]: voteResponse.votes,
+                }))
+              }
+            })
+          })
+        } else {
+          setError(response.error || 'Failed to load game')
+          setIsLoading(false)
         }
-      }
-      setVotes(votesData)
+      })
     } catch (err) {
-      setState(prev => ({
+      setError(err instanceof Error ? err.message : 'Failed to load game')
+      setIsLoading(false)
+    }
+  }, [gameId, socket])
+
+  useEffect(() => {
+    if (socket && isConnected && gameId) {
+      loadGame()
+    }
+  }, [socket, isConnected, gameId, loadGame])
+
+  // Subscribe to real-time updates via Socket.IO
+  useEffect(() => {
+    if (!socket) return
+
+    // Game updates
+    const handleGameUpdated = (updatedGame: Game) => {
+      console.log('Game updated:', updatedGame)
+      setGame(updatedGame)
+    }
+
+    // Player joined
+    const handlePlayerJoined = (player: Player) => {
+      console.log('Player joined:', player)
+      setPlayers(prev =>
+        prev.some(p => p.id === player.id)
+          ? prev.map(p => (p.id === player.id ? player : p))
+          : [...prev, player]
+      )
+    }
+
+    // Player left
+    const handlePlayerLeft = ({ playerId: leftPlayerId }: { playerId: string }) => {
+      console.log('Player left:', leftPlayerId)
+      setPlayers(prev => prev.filter(p => p.id !== leftPlayerId))
+    }
+
+    // Issue created
+    const handleIssueCreated = (issue: Issue) => {
+      console.log('Issue created:', issue)
+      setIssues(prev => [...prev, issue])
+    }
+
+    // Issue updated
+    const handleIssueUpdated = (issue: Issue) => {
+      console.log('Issue updated:', issue)
+      setIssues(prev => prev.map(i => (i.id === issue.id ? issue : i)))
+    }
+
+    // Issue deleted
+    const handleIssueDeleted = ({ issueId }: { issueId: string }) => {
+      console.log('Issue deleted:', issueId)
+      setIssues(prev => prev.filter(i => i.id !== issueId))
+    }
+
+    // Votes updated
+    const handleVotesUpdated = ({ issueId: votedIssueId, votes: newVotes }: { issueId: string; votes: Vote[] }) => {
+      console.log('Votes updated for issue:', votedIssueId)
+      setVotes(prev => ({
         ...prev,
-        error: err instanceof Error ? err.message : 'Failed to load game',
-        isLoading: false,
+        [votedIssueId]: newVotes,
       }))
     }
-  }, [gameId])
 
-  useEffect(() => {
-    loadGame()
-  }, [loadGame])
+    // Votes reset
+    const handleVotesReset = ({ issueId: resetIssueId }: { issueId: string }) => {
+      console.log('Votes reset for issue:', resetIssueId)
+      setVotes(prev => ({
+        ...prev,
+        [resetIssueId]: [],
+      }))
+    }
 
-  // Subscribe to real-time updates
-  useEffect(() => {
-    if (!gameId) return
-
-    const unsubscribe = subscribeToGame(gameId, async (payload) => {
-      const { event, table, new: newRow } = payload
-
-      if (table === 'games' && newRow) {
-        setState(prev => ({ ...prev, game: newRow as Game }))
-      } else if (table === 'players') {
-        console.log('Player event:', { event, payload, old: payload.old, new: newRow })
-        if (event === 'DELETE') {
-          const deletedId = payload.old?.id
-          console.log('Removing player:', deletedId)
-          setState(prev => ({
-            ...prev,
-            players: prev.players.filter(p => p.id !== deletedId),
-          }))
-        } else {
-          setState(prev => ({
-            ...prev,
-            players: prev.players.some(p => p.id === newRow!.id)
-              ? prev.players.map(p => p.id === newRow!.id ? newRow! as Player : p)
-              : [...prev.players, newRow! as Player],
-          }))
-        }
-      } else if (table === 'issues') {
-        if (event === 'DELETE') {
-          setState(prev => ({
-            ...prev,
-            issues: prev.issues.filter(i => i.id !== payload.old.id),
-          }))
-        } else {
-          setState(prev => ({
-            ...prev,
-            issues: prev.issues.some(i => i.id === newRow!.id)
-              ? prev.issues.map(i => i.id === newRow!.id ? newRow! as Issue : i)
-              : [...prev.issues, newRow! as Issue],
-          }))
-        }
-      } else if (table === 'votes') {
-        // Reload votes for the affected issue on any vote change (insert, update, delete)
-        const issueId = newRow 
-          ? (newRow as Vote).issue_id 
-          : payload.old?.issue_id
-        
-        if (issueId) {
-          const { data: issueVotes } = await supabase
-            .from('votes')
-            .select('*')
-            .eq('game_id', gameId)
-            .eq('issue_id', issueId)
-
-          if (issueVotes) {
-            setVotes(prev => ({ ...prev, [issueId]: issueVotes }))
-          }
-        }
-      }
-    })
+    socket.on('game-updated', handleGameUpdated)
+    socket.on('player-joined', handlePlayerJoined)
+    socket.on('player-left', handlePlayerLeft)
+    socket.on('issue-created', handleIssueCreated)
+    socket.on('issue-updated', handleIssueUpdated)
+    socket.on('issue-deleted', handleIssueDeleted)
+    socket.on('votes-updated', handleVotesUpdated)
+    socket.on('votes-reset', handleVotesReset)
 
     return () => {
-      unsubscribe()
+      socket.off('game-updated', handleGameUpdated)
+      socket.off('player-joined', handlePlayerJoined)
+      socket.off('player-left', handlePlayerLeft)
+      socket.off('issue-created', handleIssueCreated)
+      socket.off('issue-updated', handleIssueUpdated)
+      socket.off('issue-deleted', handleIssueDeleted)
+      socket.off('votes-updated', handleVotesUpdated)
+      socket.off('votes-reset', handleVotesReset)
     }
-  }, [gameId])
+  }, [socket])
 
-  const updateGameStatus = async (status: GameStatus) => {
-    if (!gameId) return
+  // Update game status
+  const updateGameStatus = useCallback(
+    async (status: GameStatus) => {
+      if (!gameId || !socket) return
 
-    const { error } = await supabase
-      .from('games')
-      .update({ status })
-      .eq('id', gameId)
+      socket.emit('update-game-status', { gameId, status }, (response: any) => {
+        if (!response.success) {
+          console.error('Failed to update game status:', response.error)
+        }
+      })
+    },
+    [gameId, socket]
+  )
 
-    if (error) throw error
-  }
+  // Submit vote
+  const submitVote = useCallback(
+    async (issueId: string, points: number) => {
+      if (!gameId || !playerId || !socket) return
+
+      socket.emit('submit-vote', { gameId, issueId, playerId, points }, (response: any) => {
+        if (!response.success) {
+          console.error('Failed to submit vote:', response.error)
+        }
+      })
+    },
+    [gameId, playerId, socket]
+  )
+
+  // Create issue
+  const createIssue = useCallback(
+    async (title: string, description?: string) => {
+      if (!gameId || !socket) return
+
+      const order = issues.length
+      socket.emit('create-issue', { gameId, title, description, order }, (response: any) => {
+        if (!response.success) {
+          console.error('Failed to create issue:', response.error)
+        }
+      })
+    },
+    [gameId, socket, issues.length]
+  )
+
+  // Update issue
+  const updateIssue = useCallback(
+    async (issueId: string, updates: Partial<Issue>) => {
+      if (!socket) return
+
+      socket.emit('update-issue', { issueId, updates }, (response: any) => {
+        if (!response.success) {
+          console.error('Failed to update issue:', response.error)
+        }
+      })
+    },
+    [socket]
+  )
+
+  // Delete issue
+  const deleteIssue = useCallback(
+    async (issueId: string) => {
+      if (!gameId || !socket) return
+
+      socket.emit('delete-issue', { issueId, gameId }, (response: any) => {
+        if (!response.success) {
+          console.error('Failed to delete issue:', response.error)
+        }
+      })
+    },
+    [gameId, socket]
+  )
+
+  // Set current issue
+  const setCurrentIssue = useCallback(
+    async (issueId: string | null) => {
+      if (!gameId || !socket) return
+
+      socket.emit('set-current-issue', { gameId, issueId }, (response: any) => {
+        if (!response.success) {
+          console.error('Failed to set current issue:', response.error)
+        }
+      })
+    },
+    [gameId, socket]
+  )
+
+  // Reset votes
+  const resetVotes = useCallback(
+    async (issueId: string) => {
+      if (!gameId || !socket) return
+
+      socket.emit('reset-votes', { gameId, issueId }, (response: any) => {
+        if (!response.success) {
+          console.error('Failed to reset votes:', response.error)
+        }
+      })
+    },
+    [gameId, socket]
+  )
 
   return {
-    ...state,
+    game,
+    players,
+    issues,
     votes,
+    currentPlayer,
+    isLoading,
+    error,
     refreshGame: loadGame,
     updateGameStatus,
+    submitVote,
+    createIssue,
+    updateIssue,
+    deleteIssue,
+    setCurrentIssue,
+    resetVotes,
     setVotes,
+    socket,
+    isConnected,
   }
 }

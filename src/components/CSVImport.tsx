@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { supabase } from '@/lib/supabase'
+import { useWebSocketPresence } from '@/hooks/useWebSocketPresence'
+import { usePlayer } from '@/hooks/usePlayer'
 
 interface CSVImportProps {
   gameId: string
@@ -10,6 +11,9 @@ interface CSVImportProps {
 }
 
 export function CSVImport({ gameId, onImportComplete }: CSVImportProps) {
+  const { playerId, playerName } = usePlayer()
+  const { socket } = useWebSocketPresence(gameId, playerId, playerName || '')
+  
   const [isOpen, setIsOpen] = useState(false)
   const [csvText, setCsvText] = useState('')
   const [isImporting, setIsImporting] = useState(false)
@@ -34,7 +38,7 @@ export function CSVImport({ gameId, onImportComplete }: CSVImportProps) {
   }
 
   const handleImport = async () => {
-    if (!csvText.trim()) return
+    if (!csvText.trim() || !socket) return
 
     setIsImporting(true)
     setError(null)
@@ -42,31 +46,25 @@ export function CSVImport({ gameId, onImportComplete }: CSVImportProps) {
     try {
       const titles = parseCSV(csvText)
 
-      // Get current issues count
-      const { data: existingIssues } = await supabase
-        .from('issues')
-        .select('order')
-        .eq('game_id', gameId)
-        .order('order', { ascending: false })
-        .limit(1)
+      // Import each issue via Socket.IO
+      const importPromises = titles.map((title, index) => {
+        return new Promise<void>((resolve, reject) => {
+          socket.emit('create-issue', { 
+            gameId, 
+            title, 
+            order: index,
+            status: index === 0 ? 'voting' : 'pending'
+          }, (response: any) => {
+            if (response.success) {
+              resolve()
+            } else {
+              reject(new Error(response.error || 'Failed to create issue'))
+            }
+          })
+        })
+      })
 
-      const startOrder = existingIssues && existingIssues.length > 0
-        ? (existingIssues[0] as any).order + 1
-        : 0
-
-      // Insert issues
-      const issuesToInsert = titles.map((title, index) => ({
-        game_id: gameId,
-        title,
-        order: startOrder + index,
-        status: existingIssues && existingIssues.length === 0 && index === 0 ? 'voting' : 'pending',
-      }))
-
-      const { error } = await supabase
-        .from('issues')
-        .insert(issuesToInsert)
-
-      if (error) throw error
+      await Promise.all(importPromises)
 
       setIsOpen(false)
       setCsvText('')

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { FlyingReactions, ReactionPicker, type FlyingEmoji } from './Reactions'
 import type { Player } from '@/types'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
-import { io, Socket } from 'socket.io-client'
+import { Socket } from 'socket.io-client'
 import {
   useFloating,
   useHover,
@@ -27,6 +27,7 @@ interface PokerTableProps {
   isRevealed: boolean
   isPlayerActive: (id: string) => boolean
   gameId: string
+  socket: Socket | null
   pendingVote?: {
     value: number | string
     playerId: string
@@ -139,33 +140,42 @@ export function PokerTable({
   isRevealed,
   isPlayerActive,
   gameId,
+  socket,
   pendingVote,
 }: PokerTableProps) {
   const currentVotes = currentIssueId ? votes[currentIssueId] || [] : []
   const [flyingReactions, setFlyingReactions] = useState<FlyingEmoji[]>([])
-  const [socket, setSocket] = useState<Socket | null>(null)
 
   // spam queue: stagger reactions by 50-100ms
   const reactionQueueRef = useRef<{ emoji: string; targetPlayerId?: string; fromSocket?: boolean; isImage?: boolean; imageUrl?: string }[]>([])
   const processingRef = useRef(false)
 
   const processQueue = useCallback(() => {
-    if (processingRef.current) return
+    if (processingRef.current) {
+      console.log('Queue already processing, skipping')
+      return
+    }
     processingRef.current = true
+    console.log('Processing reaction queue, items:', reactionQueueRef.current.length)
 
     const processNext = () => {
       const item = reactionQueueRef.current.shift()
       if (!item) {
+        console.log('Queue empty, done processing')
         processingRef.current = false
         return
       }
 
+      console.log('Processing reaction:', item.emoji, 'fromSocket:', item.fromSocket, 'target:', item.targetPlayerId)
+
       let targetEl: HTMLElement | null = null
       if (item.targetPlayerId) {
         targetEl = document.querySelector(`[data-player-card="${item.targetPlayerId}"]`)
+        console.log('Target element for', item.targetPlayerId, ':', targetEl)
       }
       if (!targetEl) {
         const allCards = document.querySelectorAll('[data-player-card]')
+        console.log('No specific target, picking random from', allCards.length, 'cards')
         if (allCards.length > 0) {
           targetEl = allCards[Math.floor(Math.random() * allCards.length)] as HTMLElement
         }
@@ -180,6 +190,7 @@ export function PokerTable({
         item.imageUrl
       )
 
+      console.log('Created flying reaction:', reaction.id)
       setFlyingReactions(prev => [...prev, reaction])
 
       // remove after full animation (~flight + impact + bounces + settle)
@@ -196,48 +207,19 @@ export function PokerTable({
     processNext()
   }, [currentPlayerName])
 
-  // Setup reaction socket
+  // Setup reaction listeners on provided socket
   useEffect(() => {
-    if (!gameId || !currentPlayerId) return
+    if (!socket || !gameId) return
 
-    // Explicitly construct the socket URL for production compatibility
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.host
-    const socketUrl = `${protocol}//${host}`
+    // Listen for reactions from other players
+    const handleReaction = (data: { emoji: string; playerName: string; targetPlayerId?: string; isImage?: boolean; imageUrl?: string }) => {
+      console.log('Received reaction from socket:', data, 'My name:', currentPlayerName)
+      if (data.playerName === currentPlayerName) {
+        console.log('Skipping own reaction')
+        return
+      }
 
-    const socketInstance = io(socketUrl, {
-      path: '/api/socket',
-      transports: ['websocket', 'polling'], // Allow fallback to polling
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    })
-
-    // Join the game room when connected
-    socketInstance.on('connect', () => {
-      console.log('Socket connected, joining game:', gameId)
-      socketInstance.emit('join-game', {
-        gameId,
-        playerId: currentPlayerId,
-        playerName: currentPlayerName,
-      })
-    })
-
-    socketInstance.on('connect_error', (err) => {
-      console.error('Socket connection error:', err.message)
-    })
-
-    socketInstance.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason)
-    })
-
-    socketInstance.on('reconnect', (attemptNumber) => {
-      console.log('Socket reconnected after', attemptNumber, 'attempts')
-    })
-
-    socketInstance.on('reaction', (data: { emoji: string; playerName: string; targetPlayerId?: string; isImage?: boolean; imageUrl?: string }) => {
-      if (data.playerName === currentPlayerName) return
-
+      console.log('Adding reaction to queue from:', data.playerName)
       reactionQueueRef.current.push({
         emoji: data.emoji,
         targetPlayerId: data.targetPlayerId,
@@ -246,18 +228,17 @@ export function PokerTable({
         imageUrl: data.imageUrl
       })
       processQueue()
-    })
-
-    // Note: Card placement animations are intentionally NOT broadcast to keep votes secret
-    // Only the player who voted sees their own card animation
-
-    setSocket(socketInstance)
-    return () => {
-      socketInstance.disconnect()
     }
-  }, [gameId, players, currentPlayerName, currentPlayerId, processQueue])
+
+    socket.on('reaction', handleReaction)
+
+    return () => {
+      socket.off('reaction', handleReaction)
+    }
+  }, [socket, gameId, currentPlayerName, processQueue])
 
   const handleReact = useCallback((emoji: string, targetPlayerId?: string, isImage?: boolean, imageUrl?: string) => {
+    console.log('Sending reaction:', { emoji, targetPlayerId, playerName: currentPlayerName })
     if (socket) {
       socket.emit('reaction', { 
         gameId, 
@@ -267,6 +248,9 @@ export function PokerTable({
         isImage,
         imageUrl
       })
+      console.log('Reaction emitted to socket')
+    } else {
+      console.log('No socket available!')
     }
 
     reactionQueueRef.current.push({ 
