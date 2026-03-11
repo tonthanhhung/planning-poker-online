@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useSocket } from './useSocket'
-import type { Game, Player, Issue, GameStatus, Vote } from '@/types'
+import type { Game, Player, Issue, GameStatus, Vote, PlayerStreakStats, IssueVoteStats, VoteDistribution } from '@/types'
 
 interface UseGameState {
   game: Game | null
@@ -26,11 +26,53 @@ interface UseGameActions {
   setVotes: React.Dispatch<React.SetStateAction<Record<string, Vote[]>>>
 }
 
+interface UseGameGamification {
+  streakStats: PlayerStreakStats[]
+  topStreakLeaders: PlayerStreakStats[]
+  shouldShowStreakStats: boolean
+  totalRevotes: number
+  allIssueStats: IssueVoteStats[]
+}
+
+// Helper to calculate mode (most frequent value)
+function calculateMode(votes: number[]): number | null {
+  if (votes.length === 0) return null
+  const counts: Record<number, number> = {}
+  votes.forEach(v => {
+    counts[v] = (counts[v] || 0) + 1
+  })
+  let maxCount = 0
+  let mode: number | null = null
+  Object.entries(counts).forEach(([value, count]) => {
+    if (count > maxCount) {
+      maxCount = count
+      mode = Number(value)
+    }
+  })
+  return mode
+}
+
+// Helper to calculate vote distribution
+function calculateVoteDistribution(votes: number[]): VoteDistribution[] {
+  if (votes.length === 0) return []
+  const counts: Record<number, number> = {}
+  votes.forEach(v => {
+    counts[v] = (counts[v] || 0) + 1
+  })
+  return Object.entries(counts)
+    .map(([value, count]) => ({
+      value: Number(value),
+      count,
+      percentage: Math.round((count / votes.length) * 100),
+    }))
+    .sort((a, b) => (typeof a.value === 'number' && typeof b.value === 'number' ? a.value - b.value : 0))
+}
+
 export function useGame(
   gameId: string | null,
   playerId: string | null,
   playerName: string
-): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean } & UseGameActions {
+): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean } & UseGameActions & UseGameGamification {
   const [game, setGame] = useState<Game | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
   const [issues, setIssues] = useState<Issue[]>([])
@@ -38,6 +80,81 @@ export function useGame(
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Track total revotes across all issues (incremented when votes are reset during voting)
+  const [totalRevotes, setTotalRevotes] = useState(0)
+  
+  // Track all historical votes for streak calculation (persists across reveals)
+  const [allIssueStats, setAllIssueStats] = useState<IssueVoteStats[]>([])
+  
+  // Get current issue ID (the one with status 'voting')
+  const currentIssueId = useMemo(() => {
+    return issues.find(i => i.status === 'voting')?.id || null
+  }, [issues])
+  
+  // Calculate streak stats for all players
+  const streakStats = useMemo((): PlayerStreakStats[] => {
+    if (allIssueStats.length === 0 || players.length === 0) return []
+    
+    // Initialize stats for each player
+    const statsMap = new Map<string, PlayerStreakStats>()
+    players.forEach(player => {
+      statsMap.set(player.id, {
+        playerId: player.id,
+        playerName: player.name,
+        totalVotes: 0,
+        majorityAlignments: 0,
+        alignmentPercentage: 0,
+      })
+    })
+    
+    // Process each issue's stats
+    allIssueStats.forEach(issueStats => {
+      if (!issueStats.mode) return
+      
+      // Get all votes for this issue from the votes state
+      const issueVotes = votes[issueStats.issueId] || []
+      
+      issueVotes.forEach(vote => {
+        if (vote.points < 0) return // Skip coffee breaks
+        
+        const playerStats = statsMap.get(vote.player_id)
+        if (playerStats) {
+          playerStats.totalVotes += 1
+          // Check if this player's vote matches the mode (majority)
+          if (vote.points === issueStats.mode) {
+            playerStats.majorityAlignments += 1
+          }
+        }
+      })
+    })
+    
+    // Calculate percentages and convert to array
+    const result = Array.from(statsMap.values())
+      .filter(s => s.totalVotes > 0)
+      .map(s => ({
+        ...s,
+        alignmentPercentage: Math.round((s.majorityAlignments / s.totalVotes) * 100),
+      }))
+      .sort((a, b) => {
+        // Sort by alignment percentage (descending), then by total votes (descending)
+        if (b.alignmentPercentage !== a.alignmentPercentage) {
+          return b.alignmentPercentage - a.alignmentPercentage
+        }
+        return b.totalVotes - a.totalVotes
+      })
+    
+    return result
+  }, [allIssueStats, players, votes])
+  
+  // Get top 2 streak leaders
+  const topStreakLeaders = useMemo(() => streakStats.slice(0, 2), [streakStats])
+  
+  // Check if streak stats should be shown (>= 5 completed tasks OR >= 3 total revotes)
+  const shouldShowStreakStats = useMemo(() => {
+    const completedIssues = issues.filter(i => i.status === 'completed').length
+    return completedIssues >= 5 || totalRevotes >= 3
+  }, [issues, totalRevotes])
 
   const { socket, isConnected } = useSocket(gameId, playerId, playerName)
 
@@ -258,6 +375,9 @@ export function useGame(
     async (issueId: string) => {
       if (!gameId || !socket) return
 
+      // Increment total revotes counter
+      setTotalRevotes(prev => prev + 1)
+
       socket.emit('reset-votes', { gameId, issueId }, (response: any) => {
         if (!response.success) {
           console.error('Failed to reset votes:', response.error)
@@ -266,6 +386,46 @@ export function useGame(
     },
     [gameId, socket]
   )
+  
+  // Track issue stats when game status changes to revealed
+  useEffect(() => {
+    if (game?.status === 'revealed' && currentIssueId) {
+      const currentVotesForIssue = votes[currentIssueId] || []
+      const numericVotes = currentVotesForIssue
+        .map(v => v.points)
+        .filter(p => p >= 0)
+      
+      if (numericVotes.length > 0) {
+        const mode = calculateMode(numericVotes)
+        const distribution = calculateVoteDistribution(numericVotes)
+        const currentIssue = issues.find(i => i.id === currentIssueId)
+        
+        if (mode !== null && currentIssue) {
+          setAllIssueStats(prev => {
+            // Check if we already have stats for this issue
+            const existingIndex = prev.findIndex(s => s.issueId === currentIssueId)
+            const newStats: IssueVoteStats = {
+              issueId: currentIssueId,
+              issueTitle: currentIssue.title,
+              mode,
+              modeCount: distribution.find(d => d.value === mode)?.count || 0,
+              distribution,
+              totalVotes: numericVotes.length,
+            }
+            
+            if (existingIndex >= 0) {
+              // Update existing stats
+              const updated = [...prev]
+              updated[existingIndex] = newStats
+              return updated
+            }
+            // Add new stats
+            return [...prev, newStats]
+          })
+        }
+      }
+    }
+  }, [game?.status, currentIssueId, votes, issues])
 
   return {
     game,
@@ -286,5 +446,11 @@ export function useGame(
     setVotes,
     socket,
     isConnected,
+    // Gamification stats
+    streakStats,
+    topStreakLeaders,
+    shouldShowStreakStats,
+    totalRevotes,
+    allIssueStats,
   }
 }

@@ -8,7 +8,7 @@ import { usePlayer } from '@/hooks/usePlayer'
 import { useWebSocketPresence } from '@/hooks/useWebSocketPresence'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { COFFEE_CARD, type Vote } from '@/types'
+import { COFFEE_CARD, type Vote, type PlayerStreakStats } from '@/types'
 import { generateFunnyName } from '@/lib/funnyNames'
 
 const LAST_GAME_ID_KEY = 'planning_poker_last_game_id'
@@ -40,6 +40,10 @@ export function GameRoom({ gameId }: GameRoomProps) {
     setCurrentIssue: setCurrentIssueSocket,
     socket: gameSocket,
     isConnected: isGameSocketConnected,
+    // Gamification stats
+    topStreakLeaders,
+    shouldShowStreakStats,
+    totalRevotes,
   } = useGame(gameId, playerId, playerName || '')
 
   const [isJoining, setIsJoining] = useState(false)
@@ -86,6 +90,9 @@ export function GameRoom({ gameId }: GameRoomProps) {
   // Issue editing state
   const [editingIssueId, setEditingIssueId] = useState<string | null>(null)
   const [editIssueTitle, setEditIssueTitle] = useState('')
+  
+  // Streak stats panel state
+  const [showStreakStats, setShowStreakStats] = useState(false)
   
   // Flying card animation state
   const [flyingCard, setFlyingCard] = useState<{
@@ -406,14 +413,37 @@ export function GameRoom({ gameId }: GameRoomProps) {
 
     if (numericVotes.length === 0) return null
 
-    const avg = numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length
+    // Calculate mode (most frequent value)
+    const counts: Record<number, number> = {}
+    numericVotes.forEach(v => {
+      counts[v] = (counts[v] || 0) + 1
+    })
+    
+    let maxCount = 0
+    let mode: number | null = null
+    Object.entries(counts).forEach(([value, count]) => {
+      if (count > maxCount) {
+        maxCount = count
+        mode = Number(value)
+      }
+    })
+    
+    // Build distribution string
+    const distribution = Object.entries(counts)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([value, count]) => `${value} (${count} vote${count > 1 ? 's' : ''})`)
+      .join(', ')
+
     const uniqueVotes = new Set(numericVotes)
 
     return {
-      average: avg.toFixed(1),
+      mode,
+      modeCount: maxCount,
       consensus: uniqueVotes.size === 1,
       votes: numericVotes,
       coffeeBreaks: currentVotes.filter(v => v.points < 0).length,
+      distribution,
+      totalVotes: numericVotes.length,
     }
   }
 
@@ -791,13 +821,101 @@ export function GameRoom({ gameId }: GameRoomProps) {
                         {consensus.consensus ? '🎉 Consensus Reached!' : '🤔 Different Estimates'}
                       </h4>
                       <p className="text-neutral mb-1">
-                        Average: <span className="font-bold text-primary">{consensus.average}</span> points
+                        Most Voted: <span className="font-bold text-primary text-2xl">{consensus.mode}</span> points
+                      </p>
+                      <p className="text-xs text-neutral mb-2">
+                        {consensus.distribution}
                       </p>
                       {consensus.coffeeBreaks > 0 && (
                         <p className="text-neutral text-sm">
                           ☕ {consensus.coffeeBreaks} player(s) took a coffee break
                         </p>
                       )}
+                    </motion.div>
+                  )}
+                  
+                  {/* Streak Stats Panel - Shows when conditions are met */}
+                  {shouldShowStreakStats && topStreakLeaders.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="rounded-lg border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 p-4"
+                    >
+                      <button
+                        onClick={() => setShowStreakStats(!showStreakStats)}
+                        className="w-full flex items-center justify-between text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🔥</span>
+                          <div>
+                            <h4 className="text-base font-semibold text-purple-800">
+                              Majority Streak Leaders
+                            </h4>
+                            <p className="text-xs text-purple-600">
+                              Top players whose votes match the consensus
+                            </p>
+                          </div>
+                        </div>
+                        <svg
+                          className={`w-5 h-5 text-purple-600 transition-transform ${showStreakStats ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      
+                      <AnimatePresence>
+                        {showStreakStats && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-4 space-y-3">
+                              {topStreakLeaders.map((leader, index) => (
+                                <motion.div
+                                  key={leader.playerId}
+                                  initial={{ x: -20, opacity: 0 }}
+                                  animate={{ x: 0, opacity: 1 }}
+                                  transition={{ delay: index * 0.1 }}
+                                  className={`flex items-center gap-3 p-3 rounded-lg ${
+                                    index === 0 ? 'bg-yellow-100 border border-yellow-300' : 'bg-white border border-purple-200'
+                                  }`}
+                                >
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
+                                    index === 0 ? 'bg-yellow-500' : 'bg-purple-400'
+                                  }`}>
+                                    {index === 0 ? '👑' : `#${index + 1}`}
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="font-semibold text-purple-900">{leader.playerName}</p>
+                                    <p className="text-xs text-purple-600">
+                                      {leader.majorityAlignments}/{leader.totalVotes} votes matched consensus
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className={`text-2xl font-bold ${
+                                      index === 0 ? 'text-yellow-600' : 'text-purple-600'
+                                    }`}>
+                                      {leader.alignmentPercentage}%
+                                    </p>
+                                    <p className="text-[10px] text-purple-500">alignment</p>
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-purple-200">
+                              <p className="text-xs text-purple-600 text-center">
+                                📊 Stats shown after 5+ completed issues or 3+ revotes
+                              </p>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                   )}
 

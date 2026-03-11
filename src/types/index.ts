@@ -60,3 +60,27 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
 }
+
+// Gamification types
+export interface PlayerStreakStats {
+  playerId: string;
+  playerName: string;
+  totalVotes: number;
+  majorityAlignments: number;
+  alignmentPercentage: number;
+}
+
+export interface VoteDistribution {
+  value: number | string;
+  count: number;
+  percentage: number;
+}
+
+export interface IssueVoteStats {
+  issueId: string;
+  issueTitle: string;
+  mode: number | null;
+  modeCount: number;
+  distribution: VoteDistribution[];
+  totalVotes: number;
+}

@@ -277,25 +277,56 @@ export function PokerTable({
       return Number(a[0]) - Number(b[0])
     })
     const maxCount = Math.max(...entries.map(e => e[1]))
-    return entries.map(([value, count]) => ({ value, count, maxCount }))
+    
+    // Calculate mode (most voted value)
+    let mode: string | null = null
+    let modeCount = 0
+    entries.forEach(([value, count]) => {
+      if (value !== '?' && count > modeCount) {
+        modeCount = count
+        mode = value
+      }
+    })
+    
+    return entries.map(([value, count]) => ({ 
+      value, 
+      count, 
+      maxCount,
+      isMode: value === mode
+    }))
   }, [isRevealed, currentVotes])
 
   // Calculate vote statistics
-  const voteStats = {
-    total: currentVotes.length,
-    average: currentVotes.length > 0
-      ? (currentVotes.filter(v => v.points >= 0).reduce((a, b) => a + b.points, 0) /
-         Math.max(currentVotes.filter(v => v.points >= 0).length, 1)).toFixed(1)
-      : '0',
-    min: currentVotes.filter(v => v.points >= 0).length > 0
-      ? Math.min(...currentVotes.filter(v => v.points >= 0).map(v => v.points))
-      : null,
-    max: currentVotes.filter(v => v.points >= 0).length > 0
-      ? Math.max(...currentVotes.filter(v => v.points >= 0).map(v => v.points))
-      : null,
-    consensus: new Set(currentVotes.filter(v => v.points >= 0).map(v => v.points)).size === 1 && currentVotes.length > 0,
-    coffeeBreaks: currentVotes.filter(v => v.points < 0).length,
-  }
+  const voteStats = useMemo(() => {
+    const numericVotes = currentVotes.filter(v => v.points >= 0).map(v => v.points)
+    
+    // Calculate mode
+    const counts: Record<number, number> = {}
+    numericVotes.forEach(v => {
+      counts[v] = (counts[v] || 0) + 1
+    })
+    let maxCount = 0
+    let mode: number | null = null
+    Object.entries(counts).forEach(([value, count]) => {
+      if (count > maxCount) {
+        maxCount = count
+        mode = Number(value)
+      }
+    })
+    
+    return {
+      total: currentVotes.length,
+      mode,
+      modeCount: maxCount,
+      average: numericVotes.length > 0
+        ? (numericVotes.reduce((a, b) => a + b, 0) / numericVotes.length).toFixed(1)
+        : '0',
+      min: numericVotes.length > 0 ? Math.min(...numericVotes) : null,
+      max: numericVotes.length > 0 ? Math.max(...numericVotes) : null,
+      consensus: new Set(numericVotes).size === 1 && numericVotes.length > 0,
+      coffeeBreaks: currentVotes.filter(v => v.points < 0).length,
+    }
+  }, [currentVotes])
 
   // Split players into sections around the table
   const topPlayers = players.slice(0, 3)
@@ -500,9 +531,8 @@ export function PokerTable({
         animate={{ opacity: 1, y: 0 }}
         className="flex items-end justify-center gap-6"
       >
-        {voteDistribution.map(({ value, count, maxCount }) => {
+        {voteDistribution.map(({ value, count, maxCount, isMode }) => {
           const barHeight = Math.max(8, (count / maxCount) * barMaxHeight)
-          const isHighest = count === maxCount
 
           return (
             <div key={value} className="flex flex-col items-center gap-1">
@@ -510,13 +540,13 @@ export function PokerTable({
                 initial={{ height: 0 }}
                 animate={{ height: barHeight }}
                 transition={{ duration: 0.5, ease: 'easeOut' }}
-                className={`w-3 rounded-full ${isHighest ? 'bg-primary' : 'bg-neutral-light'}`}
+                className={`w-3 rounded-full ${isMode ? 'bg-primary' : 'bg-neutral-light'}`}
               />
               <div className={`w-10 h-10 rounded-md border-2 flex items-center justify-center text-sm font-bold
-                ${isHighest ? 'border-primary bg-blue-light text-primary' : 'border-border bg-surface text-neutral'}`}>
+                ${isMode ? 'border-primary bg-blue-light text-primary' : 'border-border bg-surface text-neutral'}`}>
                 {value}
               </div>
-              <span className={`text-[10px] font-medium ${isHighest ? 'text-secondary' : 'text-neutral'}`}>
+              <span className={`text-[10px] font-medium ${isMode ? 'text-secondary' : 'text-neutral'}`}>
                 {count} {count === 1 ? 'Vote' : 'Votes'}
               </span>
             </div>
@@ -525,14 +555,19 @@ export function PokerTable({
 
         <div className="flex flex-col items-start gap-1 ml-6 pl-6 border-l border-border">
           <div>
-            <span className="text-neutral text-xs">Average:</span>
-            <div className="text-2xl font-bold text-secondary">{voteStats.average}</div>
+            <span className="text-neutral text-xs">Most Voted:</span>
+            <div className="text-2xl font-bold text-primary">
+              {voteStats.mode !== null ? voteStats.mode : '-'}
+            </div>
+          </div>
+          <div className="text-xs text-neutral">
+            {voteStats.modeCount} {voteStats.modeCount === 1 ? 'vote' : 'votes'}
           </div>
           {voteStats.consensus && (
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              className="text-success font-semibold text-sm inline-flex items-center gap-1"
+              className="text-success font-semibold text-sm inline-flex items-center gap-1 mt-1"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -541,7 +576,7 @@ export function PokerTable({
             </motion.div>
           )}
           {!voteStats.consensus && voteStats.min !== null && (
-            <div>
+            <div className="mt-1">
               <span className="text-neutral text-xs">Range:</span>
               <div className="text-sm font-medium text-secondary">{voteStats.min} - {voteStats.max}</div>
             </div>
