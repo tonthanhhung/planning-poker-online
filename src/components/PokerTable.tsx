@@ -329,10 +329,11 @@ export function PokerTable({
   }, [currentVotes])
 
   // Split players into sections around the table
+  // On mobile, we'll show fewer players on sides to prevent overflow
   const topPlayers = players.slice(0, 3)
-  const rightPlayers = players.slice(3, 5)
-  const bottomPlayers = players.slice(5, 8).reverse()
-  const leftPlayers = players.slice(8, 10).reverse()
+  const rightPlayers = players.slice(3, 4)
+  const bottomPlayers = players.slice(4, 7).reverse()
+  const leftPlayers = players.slice(7, 8).reverse()
 
   // Track recently placed cards for animation (within last 3 seconds)
   // Stores { playerId: { timestamp, value } }
@@ -591,20 +592,26 @@ export function PokerTable({
       <FlyingReactions reactions={flyingReactions} />
 
       <div className="w-full max-w-4xl mx-auto py-4">
-        <div className="grid grid-cols-[auto_1fr_auto] grid-rows-[auto_1fr_auto] gap-4 items-center justify-items-center">
+        {/* On mobile: single column layout stacking top-center-bottom; on md+: full grid with side columns */}
+        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto] grid-rows-[auto_1fr_auto] gap-3 md:gap-4 items-center justify-items-center">
 
-          {/* Top row */}
-          <div className="col-span-3 flex justify-center gap-6 md:gap-10 mb-2">
+          {/* Top row - hidden on mobile, shown on md+ */}
+          <div className="col-span-3 flex justify-center gap-3 sm:gap-6 md:gap-10 mb-2 md:mb-4 hidden md:flex">
+            {topPlayers.map(p => renderVerticalPlayer(p, 'top'))}
+          </div>
+          
+          {/* Top row - mobile version with smaller gaps and scrollable if needed */}
+          <div className="col-span-3 flex justify-center gap-2 mb-2 md:hidden overflow-x-auto w-full pb-2">
             {topPlayers.map(p => renderVerticalPlayer(p, 'top'))}
           </div>
 
-          {/* Left players */}
-          <div className="flex flex-col gap-6 justify-center">
+          {/* Left players - hidden on mobile */}
+          <div className="hidden md:flex flex-col gap-4 md:gap-6 justify-center">
             {leftPlayers.map(p => renderHorizontalPlayer(p, 'left'))}
           </div>
 
           {/* Central table */}
-          <div className="w-full min-h-[180px] md:min-h-[220px] rounded-2xl bg-slate-100 border border-slate-200 shadow-sm flex flex-col items-center justify-center px-6 py-8 relative">
+          <div className="w-full max-w-full sm:max-w-lg md:max-w-xl min-h-[140px] sm:min-h-[180px] md:min-h-[220px] rounded-xl sm:rounded-2xl bg-slate-100 border border-slate-200 shadow-sm flex flex-col items-center justify-center px-4 py-6 sm:px-6 sm:py-8 relative">
             {!currentIssueId ? (
               <p className="text-neutral font-medium text-sm">Add an issue to start voting</p>
             ) : currentVotes.length === 0 ? (
@@ -616,13 +623,18 @@ export function PokerTable({
             )}
           </div>
 
-          {/* Right players */}
-          <div className="flex flex-col gap-6 justify-center">
+          {/* Right players - hidden on mobile */}
+          <div className="hidden md:flex flex-col gap-4 md:gap-6 justify-center">
             {rightPlayers.map(p => renderHorizontalPlayer(p, 'right'))}
           </div>
 
-          {/* Bottom row */}
-          <div className="col-span-3 flex justify-center gap-6 md:gap-10 mt-2">
+          {/* Bottom row - hidden on mobile, shown on md+ */}
+          <div className="col-span-3 flex justify-center gap-3 sm:gap-6 md:gap-10 mt-2 md:mt-4 hidden md:flex">
+            {bottomPlayers.map(p => renderVerticalPlayer(p, 'bottom'))}
+          </div>
+          
+          {/* Bottom row - mobile version with smaller gaps and scrollable if needed */}
+          <div className="col-span-3 flex justify-center gap-2 mt-2 md:hidden overflow-x-auto w-full pb-2">
             {bottomPlayers.map(p => renderVerticalPlayer(p, 'bottom'))}
           </div>
         </div>

@@ -29,9 +29,9 @@ export function PokerCard({
   animationState = 'idle',
 }: PokerCardProps) {
   const sizeClasses = {
-    sm: 'w-10 h-14 text-base',
-    md: 'w-14 h-20 text-2xl',
-    lg: 'w-20 h-28 text-4xl',
+    sm: 'w-8 h-11 text-sm sm:w-10 sm:h-14 sm:text-base',
+    md: 'w-10 h-14 text-lg sm:w-14 sm:h-20 sm:text-2xl',
+    lg: 'w-14 h-20 text-2xl sm:w-20 sm:h-28 sm:text-4xl',
   }
 
   const displayValue = value === COFFEE_CARD ? COFFEE_CARD : value
@@ -180,7 +180,7 @@ export function PokerCardDeck({
   }
 
   return (
-    <div className="flex flex-wrap justify-center gap-2 p-4">
+    <div className="flex flex-wrap justify-center gap-1 sm:gap-2 p-3 sm:p-4">
       {CARD_VALUES.map((value) => (
         <div
           key={value}

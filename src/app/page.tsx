@@ -260,11 +260,11 @@ export default function Home() {
           </div>
 
           {/* How It Works */}
-          <div className="bg-surface rounded-lg border border-border elevation-medium p-8 mb-16">
-            <h2 className="text-3xl font-bold text-secondary mb-8">
+          <div className="bg-surface rounded-lg border border-border elevation-medium p-6 sm:p-8 mb-16">
+            <h2 className="text-2xl sm:text-3xl font-bold text-secondary mb-6 sm:mb-8">
               How It Works
             </h2>
-            <div className="grid md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
               <div className="text-center">
                 <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white text-xl font-bold mx-auto mb-4">
                   1
