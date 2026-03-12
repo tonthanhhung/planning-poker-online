@@ -221,7 +221,8 @@ export function GameRoom({ gameId }: GameRoomProps) {
     }
 
     // Check if player exists in this game
-    const existingPlayer = players.find(p => p.name === playerName)
+    // Use currentPlayer which handles fallback by name if playerId not found
+    const existingPlayer = currentPlayer
     if (!existingPlayer) {
       alert('You need to join the game first. Please refresh the page.')
       return
@@ -731,7 +732,7 @@ export function GameRoom({ gameId }: GameRoomProps) {
               {/* Poker Table with Players */}
               <div className="mb-8">
                 <PokerTable
-                  players={players}
+                  players={currentPlayer && !players.find(p => p.id === currentPlayer.id) ? [...players, currentPlayer] : players}
                   currentPlayerName={playerName || ''}
                   currentPlayerId={currentPlayer?.id || null}
                   votes={votes}
