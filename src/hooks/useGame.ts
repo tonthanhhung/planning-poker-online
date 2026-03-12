@@ -26,6 +26,10 @@ interface UseGameActions {
   setVotes: React.Dispatch<React.SetStateAction<Record<string, Vote[]>>>
 }
 
+interface UseGameSyncState {
+  votesResetKey: number
+}
+
 interface UseGameGamification {
   streakStats: PlayerStreakStats[]
   topStreakLeaders: PlayerStreakStats[]
@@ -72,7 +76,7 @@ export function useGame(
   gameId: string | null,
   playerId: string | null,
   playerName: string
-): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean } & UseGameActions & UseGameGamification {
+): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean } & UseGameActions & UseGameGamification & UseGameSyncState {
   const [game, setGame] = useState<Game | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
   const [issues, setIssues] = useState<Issue[]>([])
@@ -80,6 +84,7 @@ export function useGame(
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [votesResetKey, setVotesResetKey] = useState(0)
   
   // Track total revotes across all issues (incremented when votes are reset during voting)
   const [totalRevotes, setTotalRevotes] = useState(() => {
@@ -288,6 +293,8 @@ export function useGame(
         ...prev,
         [resetIssueId]: [],
       }))
+      // Increment key to signal all clients to reset local voting state
+      setVotesResetKey(prev => prev + 1)
     }
 
     socket.on('game-updated', handleGameUpdated)
@@ -482,5 +489,7 @@ export function useGame(
     shouldShowStreakStats,
     totalRevotes,
     allIssueStats,
+    // Sync state
+    votesResetKey,
   }
 }

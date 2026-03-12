@@ -44,6 +44,7 @@ export function GameRoom({ gameId }: GameRoomProps) {
     topStreakLeaders,
     shouldShowStreakStats,
     totalRevotes,
+    votesResetKey,
   } = useGame(gameId, playerId, playerName || '')
 
   const [isJoining, setIsJoining] = useState(false)
@@ -159,6 +160,16 @@ export function GameRoom({ gameId }: GameRoomProps) {
     setSelectedCard(null)
     setHasVoted(false)
   }, [currentIssue?.id])
+
+  // Reset local voting state when votes are reset (by any player)
+  // This ensures all players see cards reset when anyone clicks revote
+  useEffect(() => {
+    if (votesResetKey > 0) {
+      setSelectedCard(null)
+      setHasVoted(false)
+      setPendingVote(null)
+    }
+  }, [votesResetKey])
 
   // Reset wasRemoved when game changes
   useEffect(() => {
@@ -335,13 +346,12 @@ export function GameRoom({ gameId }: GameRoomProps) {
 
   const handleResetVotes = async () => {
     if (!currentIssue) return
-    await resetVotesSocket(currentIssue.id)
+    // Emit reset-votes to server - all clients (including this one) will receive
+    // 'votes-reset' broadcast and reset their local state via votesResetKey effect
+    resetVotesSocket(currentIssue.id)
     await setStatus('voting')
-    // Note: votes will be cleared when server broadcasts 'votes-reset' event
-    // No need to clear locally as it causes race condition
-    setSelectedCard(null)
-    setHasVoted(false)
-    setPendingVote(null)
+    // DO NOT reset local state here - let the server broadcast handle it
+    // This ensures ALL players see cards reset at the same time
   }
 
   const handleNextIssue = async () => {
