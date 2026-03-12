@@ -1075,8 +1075,8 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
             </motion.div>
           </div>
 
-          {/* Sidebar - Issues List - Hidden on mobile unless toggled, sticky on lg */}
-          <div className={`lg:col-span-1 ${showSidebar ? 'block' : 'hidden lg:block'}`}>
+          {/* Sidebar - Issues List - Toggleable on mobile, always visible on lg */}
+          <div className={`lg:col-span-1 ${showSidebar ? 'block' : 'hidden'} lg:block`}>
             <div className="bg-surface rounded-lg border border-border elevation-medium p-4 lg:sticky lg:top-20 max-h-[calc(100vh-120px)] lg:max-h-96 overflow-y-auto">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-secondary">Issues</h3>
