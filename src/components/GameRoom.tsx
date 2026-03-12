@@ -126,12 +126,13 @@ export function GameRoom({ gameId }: GameRoomProps) {
       if (playerHasVoted && pendingVote && pendingVote.playerId === existingPlayer.id) {
         setPendingVote(null)
       }
-    } else if (playerName && !wasRemoved) {
+    } else if (playerName && !wasRemoved && !isLoading) {
       // Player name exists but player not in list - they were removed by someone else
+      // Only trigger this after initial load completes to avoid false positives during join
       console.log('Detected player removal by facilitator')
       setWasRemoved(true)
     }
-  }, [currentVotes, players, playerName, pendingVote, wasRemoved])
+  }, [currentVotes, players, playerName, pendingVote, wasRemoved, isLoading])
 
   // Reset voting state when issue changes
   useEffect(() => {
@@ -224,6 +225,11 @@ export function GameRoom({ gameId }: GameRoomProps) {
     // Use currentPlayer which handles fallback by name if playerId not found
     const existingPlayer = currentPlayer
     if (!existingPlayer) {
+      // If still loading, wait for data to load
+      if (isLoading) {
+        console.log('Game still loading, please wait...')
+        return
+      }
       alert('You need to join the game first. Please refresh the page.')
       return
     }
@@ -360,6 +366,10 @@ export function GameRoom({ gameId }: GameRoomProps) {
             updateName(name)
             syncPlayerId(response.player.id)
             setShowJoinModal(false)
+            // Refresh game data to ensure players list includes the newly created player
+            // This fixes a race condition where player-joined event is broadcast before
+            // the client's socket has joined the game room
+            refreshGame()
           } else {
             alert(`Failed to join game: ${response.error}`)
           }
