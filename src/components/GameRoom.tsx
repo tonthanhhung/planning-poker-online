@@ -113,11 +113,31 @@ export function GameRoom({ gameId }: GameRoomProps) {
     timestamp: number
   } | null>(null)
   const [wasRemoved, setWasRemoved] = useState(false)
-
-  const currentIssue = issues.find(i => i.status === 'voting') || issues[0]
+  
+  // Local state for which issue the user is viewing (not synced via WebSocket)
+  // Each user can independently navigate and view different issues
+  const [viewingIssueId, setViewingIssueId] = useState<string | null>(null)
+  
+  // Get the "active" issue from server (the one with status 'voting')
+  // This is used for game workflow, not for viewing
+  const serverActiveIssue = issues.find(i => i.status === 'voting')
+  
+  // Current issue being viewed - uses local state if set, otherwise falls back to server active issue
+  const currentIssue = useMemo(() => {
+    if (viewingIssueId) {
+      return issues.find(i => i.id === viewingIssueId) || serverActiveIssue || issues[0]
+    }
+    return serverActiveIssue || issues[0]
+  }, [issues, viewingIssueId, serverActiveIssue])
+  
   const currentVotes = useMemo(() => {
     return currentIssue ? (votes[currentIssue.id] || []) : []
   }, [currentIssue, votes])
+
+  // Determine if cards should be shown as revealed
+  // - Always revealed if global game status is 'revealed'
+  // - Also revealed if viewing a historical issue that has votes (even if global status is 'voting')
+  const isViewingRevealed = game?.status === 'revealed' || (currentIssue && currentVotes.length > 0)
 
   // Compute display status for issue tag
   // - "voted": issue has votes (indicates voting occurred on this issue)
@@ -370,6 +390,8 @@ export function GameRoom({ gameId }: GameRoomProps) {
       await setStatus('lobby')
     }
 
+    // Clear local viewing state to follow the server-tracked active issue
+    setViewingIssueId(null)
     setSelectedCard(null)
     setHasVoted(false)
   }
@@ -801,7 +823,7 @@ export function GameRoom({ gameId }: GameRoomProps) {
                   currentPlayerId={currentPlayer?.id || null}
                   votes={votes}
                   currentIssueId={currentIssue?.id || null}
-                  isRevealed={game?.status === 'revealed'}
+                  isRevealed={isViewingRevealed}
                   isPlayerActive={isPlayerActive}
                   gameId={gameId}
                   socket={gameSocket}
@@ -809,8 +831,8 @@ export function GameRoom({ gameId }: GameRoomProps) {
                 />
               </div>
 
-              {/* Voting Cards - Hidden for viewers */}
-              {(game?.status === 'voting' || game?.status === 'lobby') && !isViewer && (
+              {/* Voting Cards - Hidden for viewers, only shown for active voting issue */}
+              {(game?.status === 'voting' || game?.status === 'lobby') && !isViewer && currentIssue?.id === serverActiveIssue?.id && (
                 <div className="text-center border-t border-border pt-6">
                   <p className="text-neutral mb-4 h-6 flex items-center justify-center">
                     {hasVoted ? (
@@ -833,8 +855,8 @@ export function GameRoom({ gameId }: GameRoomProps) {
                 </div>
               )}
 
-              {/* Viewer Message */}
-              {(game?.status === 'voting' || game?.status === 'lobby') && isViewer && (
+              {/* Viewer Message - Only for active voting issue */}
+              {(game?.status === 'voting' || game?.status === 'lobby') && isViewer && currentIssue?.id === serverActiveIssue?.id && (
                 <div className="text-center border-t border-border pt-6">
                   <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-lg">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -868,8 +890,8 @@ export function GameRoom({ gameId }: GameRoomProps) {
                 )}
               </AnimatePresence>
 
-              {/* Reveal Phase Results */}
-              {game?.status === 'revealed' && currentVotes.length > 0 && (
+              {/* Reveal Phase Results - Shows when viewing an issue with votes */}
+              {isViewingRevealed && currentVotes.length > 0 && (
                 <div className="space-y-6 border-t border-border pt-6">
                   {/* Consensus Results */}
                   {consensus && (
@@ -984,26 +1006,28 @@ export function GameRoom({ gameId }: GameRoomProps) {
                     </motion.div>
                   )}
 
-                  {/* Action Buttons */}
-                  <div className="flex justify-center gap-3">
-                    <button
-                      onClick={handleResetVotes}
-                      className="px-5 py-2 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-medium transition-colors"
-                    >
-                      Revote
-                    </button>
-                    <button
-                      onClick={handleNextIssue}
-                      className="px-5 py-2 bg-primary hover:bg-blue-600 rounded text-white font-medium transition-colors"
-                    >
-                      Next Issue
-                    </button>
-                  </div>
+                  {/* Action Buttons - Only for active voting issue, not historical issues */}
+                  {currentIssue?.id === serverActiveIssue?.id && (
+                    <div className="flex justify-center gap-3">
+                      <button
+                        onClick={handleResetVotes}
+                        className="px-5 py-2 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-medium transition-colors"
+                      >
+                        Revote
+                      </button>
+                      <button
+                        onClick={handleNextIssue}
+                        className="px-5 py-2 bg-primary hover:bg-blue-600 rounded text-white font-medium transition-colors"
+                      >
+                        Next Issue
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Reveal Button - Always visible, disabled when no votes */}
-              {(game?.status === 'voting' || game?.status === 'lobby') && (
+              {/* Reveal Button - Only visible when viewing the active voting issue */}
+              {(game?.status === 'voting' || game?.status === 'lobby') && currentIssue?.id === serverActiveIssue?.id && (
                 <div className="text-center mt-6 pt-6 border-t border-border">
                   <button
                     onClick={handleReveal}
@@ -1060,6 +1084,7 @@ export function GameRoom({ gameId }: GameRoomProps) {
                   const issueVotes = votes[issue.id] || []
                   const isVoted = getIssueDisplayStatus(issue, issueVotes) === 'voted'
                   const isDeleting = deletingIssueId === issue.id
+                  const isViewing = currentIssue?.id === issue.id
                   
                   return (
                     <motion.div
@@ -1067,21 +1092,15 @@ export function GameRoom({ gameId }: GameRoomProps) {
                       initial={{ opacity: 0, x: -10 }}
                       animate={isDeleting ? { opacity: 0, x: 100 } : { opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.03 }}
-                      onClick={async () => {
-                        if (currentIssue && currentIssue.id !== issue.id) {
-                          await updateIssueSocket(currentIssue.id, { 
-                            status: currentIssue.status === 'completed' ? 'completed' : 'pending' 
-                          })
-                        }
-                        await updateIssueSocket(issue.id, { status: 'voting' })
-                        // Check if issue already has votes - if so, reveal cards automatically
-                        const issueHasVotes = votes[issue.id] && votes[issue.id].length > 0
-                        await setStatus(issueHasVotes ? 'revealed' : 'voting')
+                      onClick={() => {
+                        // Switch viewing locally - no WebSocket broadcast
+                        // Each user can independently view any issue
+                        setViewingIssueId(issue.id)
                         setSelectedCard(null)
                         setHasVoted(false)
                       }}
                       className={`p-2.5 rounded cursor-pointer transition-colors border group ${
-                        issue.id === currentIssue?.id
+                        isViewing
                           ? 'bg-blue-light border-primary/30'
                           : 'bg-surface border-transparent hover:bg-neutral-light'
                       }`}
