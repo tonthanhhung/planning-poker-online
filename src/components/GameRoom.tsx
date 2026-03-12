@@ -94,6 +94,9 @@ export function GameRoom({ gameId }: GameRoomProps) {
   // Streak stats panel state
   const [showStreakStats, setShowStreakStats] = useState(false)
   
+  // Delete confirmation state
+  const [deletingIssueId, setDeletingIssueId] = useState<string | null>(null)
+  
   // Flying card animation state
   const [flyingCard, setFlyingCard] = useState<{
     value: number | typeof COFFEE_CARD
@@ -416,6 +419,30 @@ export function GameRoom({ gameId }: GameRoomProps) {
     if (isFirstIssue) {
       await setStatus('voting')
       refreshGame()
+    }
+  }
+
+  const handleDeleteIssue = async (issueId: string) => {
+    if (confirm('Are you sure you want to remove this task?')) {
+      await deleteIssueSocket(issueId)
+      setDeletingIssueId(null)
+    }
+  }
+
+  const handleClearVotedTasks = async () => {
+    const votedIssueIds = issues
+      .filter(issue => getIssueDisplayStatus(issue, votes[issue.id] || []) === 'voted')
+      .map(issue => issue.id)
+    
+    if (votedIssueIds.length === 0) {
+      alert('No voted tasks to clear.')
+      return
+    }
+    
+    if (confirm(`Remove all ${votedIssueIds.length} voted task(s)? This cannot be undone.`)) {
+      for (const issueId of votedIssueIds) {
+        await deleteIssueSocket(issueId)
+      }
     }
   }
 
@@ -1019,65 +1046,73 @@ export function GameRoom({ gameId }: GameRoomProps) {
 
               {/* Issues List */}
               <div className="space-y-1.5 max-h-96 overflow-y-auto">
-                {issues.map((issue, index) => (
-                  <motion.div
-                    key={issue.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.03 }}
-                    onClick={async () => {
-                      if (currentIssue && currentIssue.id !== issue.id) {
-                        await updateIssueSocket(currentIssue.id, { 
-                          status: currentIssue.status === 'completed' ? 'completed' : 'pending' 
-                        })
-                      }
-                      await updateIssueSocket(issue.id, { status: 'voting' })
-                      // Check if issue already has votes - if so, reveal cards automatically
-                      const issueHasVotes = votes[issue.id] && votes[issue.id].length > 0
-                      await setStatus(issueHasVotes ? 'revealed' : 'voting')
-                      setSelectedCard(null)
-                      setHasVoted(false)
-                    }}
-                    className={`p-2.5 rounded cursor-pointer transition-colors border ${
-                      issue.id === currentIssue?.id
-                        ? 'bg-blue-light border-primary/30'
-                        : 'bg-surface border-transparent hover:bg-neutral-light'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-secondary truncate">
-                          {issue.title}
-                        </p>
-                        {issue.estimated_points && (
-                          <p className="text-xs text-primary mt-0.5">
-                            {issue.estimated_points} points
+                {issues.map((issue, index) => {
+                  const issueVotes = votes[issue.id] || []
+                  const isVoted = getIssueDisplayStatus(issue, issueVotes) === 'voted'
+                  const isDeleting = deletingIssueId === issue.id
+                  
+                  return (
+                    <motion.div
+                      key={issue.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={isDeleting ? { opacity: 0, x: 100 } : { opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                      onClick={async () => {
+                        if (currentIssue && currentIssue.id !== issue.id) {
+                          await updateIssueSocket(currentIssue.id, { 
+                            status: currentIssue.status === 'completed' ? 'completed' : 'pending' 
+                          })
+                        }
+                        await updateIssueSocket(issue.id, { status: 'voting' })
+                        // Check if issue already has votes - if so, reveal cards automatically
+                        const issueHasVotes = votes[issue.id] && votes[issue.id].length > 0
+                        await setStatus(issueHasVotes ? 'revealed' : 'voting')
+                        setSelectedCard(null)
+                        setHasVoted(false)
+                      }}
+                      className={`p-2.5 rounded cursor-pointer transition-colors border group ${
+                        issue.id === currentIssue?.id
+                          ? 'bg-blue-light border-primary/30'
+                          : 'bg-surface border-transparent hover:bg-neutral-light'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-secondary truncate">
+                            {issue.title}
                           </p>
-                        )}
+                          {issue.estimated_points && (
+                            <p className="text-xs text-primary mt-0.5">
+                              {issue.estimated_points} points
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {/* Voted badge */}
+                          {isVoted && (
+                            <span className="text-[10px] font-medium text-success bg-green-light px-1.5 py-0.5 rounded">
+                              Voted
+                            </span>
+                          )}
+                          {/* Delete button - shows on hover */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeletingIssueId(issue.id)
+                              handleDeleteIssue(issue.id)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded text-neutral hover:text-error"
+                            title="Remove task"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        {/* Status indicator dot */}
-                        <div
-                          className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                            getIssueDisplayStatus(issue, votes[issue.id] || []) === 'voted'
-                              ? 'bg-success'
-                              : issue.status === 'voting'
-                              ? 'bg-success'
-                              : issue.status === 'completed'
-                              ? 'bg-primary'
-                              : 'bg-neutral'
-                          }`}
-                        />
-                        {/* Voted badge */}
-                        {getIssueDisplayStatus(issue, votes[issue.id] || []) === 'voted' && (
-                          <span className="text-[10px] font-medium text-success bg-green-light px-1.5 py-0.5 rounded">
-                            Voted
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  )
+                })}
               </div>
 
               {issues.length === 0 && (
@@ -1090,6 +1125,19 @@ export function GameRoom({ gameId }: GameRoomProps) {
                   <p className="text-neutral text-sm">No issues yet</p>
                   <p className="text-neutral text-xs mt-1">Click &quot;Add&quot; to create one</p>
                 </div>
+              )}
+
+              {/* Clear Voted Tasks Button */}
+              {issues.length > 0 && (
+                <button
+                  onClick={handleClearVotedTasks}
+                  className="w-full mt-3 py-2 px-3 bg-red-50 hover:bg-red-100 text-error rounded text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Clear Voted Tasks
+                </button>
               )}
             </div>
           </div>
