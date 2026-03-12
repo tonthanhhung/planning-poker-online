@@ -8,7 +8,7 @@ import { usePlayer } from '@/hooks/usePlayer'
 import { useWebSocketPresence } from '@/hooks/useWebSocketPresence'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { COFFEE_CARD, type Vote, type PlayerStreakStats } from '@/types'
+import { COFFEE_CARD, type Vote, type PlayerStreakStats, type Issue } from '@/types'
 import { generateFunnyName } from '@/lib/funnyNames'
 
 const LAST_GAME_ID_KEY = 'planning_poker_last_game_id'
@@ -114,6 +114,23 @@ export function GameRoom({ gameId }: GameRoomProps) {
   const currentVotes = useMemo(() => {
     return currentIssue ? (votes[currentIssue.id] || []) : []
   }, [currentIssue, votes])
+
+  // Compute display status for issue tag
+  // - "voted": issue has votes (indicates voting occurred on this issue)
+  // - "completed": issue is completed but has no votes
+  // - "voting": game is in voting state (including after revote)
+  const getIssueDisplayStatus = useCallback((issue: Issue, issueVotes: Vote[]) => {
+    const hasVotes = issueVotes && issueVotes.length > 0
+    
+    // Show "voted" if issue has any votes (historical voting occurred)
+    if (hasVotes) {
+      return 'voted'
+    }
+    if (issue.status === 'completed') {
+      return 'completed'
+    }
+    return 'voting'
+  }, [])
 
   // Check if current player has voted and detect if removed by someone else
   useEffect(() => {
@@ -718,13 +735,13 @@ export function GameRoom({ gameId }: GameRoomProps) {
                   <div className="flex items-center gap-2 mt-1 h-6">
                     {currentIssue ? (
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        currentIssue.status === 'voting'
-                          ? 'bg-blue-light text-primary'
-                          : currentIssue.status === 'completed'
+                        getIssueDisplayStatus(currentIssue, currentVotes) === 'voted'
                           ? 'bg-green-light text-success'
-                          : 'bg-neutral-light text-neutral'
+                          : getIssueDisplayStatus(currentIssue, currentVotes) === 'completed'
+                          ? 'bg-green-light text-success'
+                          : 'bg-blue-light text-primary'
                       }`}>
-                        {currentIssue.status}
+                        {getIssueDisplayStatus(currentIssue, currentVotes)}
                       </span>
                     ) : (
                       <span className="opacity-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium">
@@ -1015,7 +1032,9 @@ export function GameRoom({ gameId }: GameRoomProps) {
                         })
                       }
                       await updateIssueSocket(issue.id, { status: 'voting' })
-                      await setStatus('voting')
+                      // Check if issue already has votes - if so, reveal cards automatically
+                      const issueHasVotes = votes[issue.id] && votes[issue.id].length > 0
+                      await setStatus(issueHasVotes ? 'revealed' : 'voting')
                       setSelectedCard(null)
                       setHasVoted(false)
                     }}
@@ -1036,15 +1055,26 @@ export function GameRoom({ gameId }: GameRoomProps) {
                           </p>
                         )}
                       </div>
-                      <div
-                        className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-0.5 ${
-                          issue.status === 'voting'
-                            ? 'bg-success'
-                            : issue.status === 'completed'
-                            ? 'bg-primary'
-                            : 'bg-neutral'
-                        }`}
-                      />
+                      <div className="flex flex-col items-end gap-1">
+                        {/* Status indicator dot */}
+                        <div
+                          className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                            getIssueDisplayStatus(issue, votes[issue.id] || []) === 'voted'
+                              ? 'bg-success'
+                              : issue.status === 'voting'
+                              ? 'bg-success'
+                              : issue.status === 'completed'
+                              ? 'bg-primary'
+                              : 'bg-neutral'
+                          }`}
+                        />
+                        {/* Voted badge */}
+                        {getIssueDisplayStatus(issue, votes[issue.id] || []) === 'voted' && (
+                          <span className="text-[10px] font-medium text-success bg-green-light px-1.5 py-0.5 rounded">
+                            Voted
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 ))}
