@@ -800,9 +800,9 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
       <div className="px-4 py-6">
         <div className="grid md:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {/* Main Game Area - Full width on mobile, 3/4 on md */}
-          <div className="md:col-span-3 space-y-6">
+          <div className="md:col-span-3">
             {/* Mobile: Toggle sidebar button */}
-            <div className="md:hidden">
+            <div className="md:hidden mb-6">
               <button
                 onClick={() => setShowSidebar(!showSidebar)}
                 className="w-full py-2.5 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-medium transition-colors flex items-center justify-center gap-2"
@@ -813,7 +813,9 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                 {showSidebar ? 'Hide Issues' : 'Show Issues'}
               </button>
             </div>
-            {/* Current Issue */}
+            
+            <div className="space-y-6">
+              {/* Current Issue */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1073,6 +1075,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                 </div>
               )}
             </motion.div>
+          </div>
           </div>
 
           {/* Sidebar - Issues List - Toggleable on mobile, always visible on md */}
