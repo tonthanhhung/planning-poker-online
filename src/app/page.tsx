@@ -302,7 +302,7 @@ export default function Home() {
               </div>
 
               <div className="text-center">
-                <div className="w-12 h-12 rounded-full bg-success flex items-center justify-center text-white text-xl font-bold mx-auto mb-4">
+                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white text-xl font-bold mx-auto mb-4">
                   4
                 </div>
                 <h3 className="text-base font-semibold text-secondary mb-2">
