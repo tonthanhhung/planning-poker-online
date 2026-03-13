@@ -375,6 +375,8 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     // 'votes-reset' broadcast and reset their local state via votesResetKey effect
     resetVotesSocket(currentIssue.id)
     await setStatus('voting')
+    // Also update issue status back to 'voting' to prevent auto-reveal
+    await updateIssueSocket(currentIssue.id, { status: 'voting' })
     // DO NOT reset local state here - let the server broadcast handle it
     // This ensures ALL players see cards reset at the same time
   }
