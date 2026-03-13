@@ -1077,7 +1077,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
 
           {/* Sidebar - Issues List - Toggleable on mobile, always visible on md */}
           <div className={`md:col-span-1 ${showSidebar ? 'block' : 'hidden'} md:block`}>
-            <div className="bg-surface rounded-lg border border-border elevation-medium p-4 md:sticky md:top-20 max-h-[calc(100vh-120px)] md:max-h-96 overflow-y-auto">
+            <div className="bg-surface rounded-lg border border-border elevation-medium p-4 max-h-[calc(100vh-120px)] md:max-h-96 overflow-y-auto">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-secondary">Issues</h3>
                 <button
