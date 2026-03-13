@@ -802,7 +802,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
           {/* Main Game Area - Full width on mobile, 3/4 on md */}
           <div className="md:col-span-3 space-y-6">
             {/* Mobile: Toggle sidebar button */}
-            <div className="md:hidden mb-4">
+            <div className="md:hidden">
               <button
                 onClick={() => setShowSidebar(!showSidebar)}
                 className="w-full py-2.5 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-medium transition-colors flex items-center justify-center gap-2"
