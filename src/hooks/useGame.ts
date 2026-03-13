@@ -18,7 +18,7 @@ interface UseGameActions {
   refreshGame: () => Promise<void>
   updateGameStatus: (status: GameStatus) => Promise<void>
   submitVote: (issueId: string, points: number) => Promise<void>
-  createIssue: (title: string, description?: string) => Promise<void>
+  createIssue: (title: string, description?: string, status?: 'pending' | 'voting') => Promise<void>
   updateIssue: (issueId: string, updates: Partial<Issue>) => Promise<void>
   deleteIssue: (issueId: string) => Promise<void>
   setCurrentIssue: (issueId: string | null) => Promise<void>
@@ -348,11 +348,11 @@ export function useGame(
 
   // Create issue
   const createIssue = useCallback(
-    async (title: string, description?: string) => {
+    async (title: string, description?: string, status?: 'pending' | 'voting') => {
       if (!gameId || !socket) return
 
       const order = issues.length
-      socket.emit('create-issue', { gameId, title, description, order }, (response: any) => {
+      socket.emit('create-issue', { gameId, title, description, order, status }, (response: any) => {
         if (!response.success) {
           console.error('Failed to create issue:', response.error)
         }

@@ -101,13 +101,14 @@ export async function createIssue(
   gameId: string, 
   title: string, 
   description?: string,
-  order?: number
+  order?: number,
+  status?: 'pending' | 'voting'
 ): Promise<Issue> {
   const result = await pool.query(
     `INSERT INTO issues (game_id, title, description, "order", status)
-     VALUES ($1, $2, $3, $4, 'pending')
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [gameId, title, description || null, order || 0]
+    [gameId, title, description || null, order || 0, status || 'pending']
   )
   return result.rows[0]
 }

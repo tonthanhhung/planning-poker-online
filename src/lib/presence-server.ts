@@ -181,10 +181,10 @@ export class PresenceServer {
       })
 
       // Create issue
-      socket.on('create-issue', async ({ gameId, title, description, order }, callback) => {
+      socket.on('create-issue', async ({ gameId, title, description, order, status }, callback) => {
         try {
           console.log(`Creating issue: ${title} in game ${gameId}`)
-          const issue = await createIssue(gameId, title, description, order)
+          const issue = await createIssue(gameId, title, description, order, status)
           
           // Broadcast to all clients in game
           this.io?.to(gameId).emit('issue-created', issue)
