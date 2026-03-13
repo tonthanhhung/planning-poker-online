@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useWebSocketPresence } from '@/hooks/useWebSocketPresence'
 import { usePlayer } from '@/hooks/usePlayer'
+import { Button } from './Button'
 
 interface CSVImportProps {
   gameId: string
@@ -93,12 +94,9 @@ export function CSVImport({ gameId, onImportComplete }: CSVImportProps) {
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="px-4 py-2 bg-primary hover:bg-blue-600 rounded-lg text-white text-sm font-semibold transition-colors"
-      >
+      <Button onClick={() => setIsOpen(true)}>
         Import CSV
-      </button>
+      </Button>
 
       <AnimatePresence>
         {isOpen && (
@@ -166,19 +164,20 @@ export function CSVImport({ gameId, onImportComplete }: CSVImportProps) {
                 )}
 
                 <div className="flex gap-3">
-                  <button
+                  <Button
                     onClick={() => setIsOpen(false)}
-                    className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-white font-semibold transition-colors"
+                    variant="secondary"
+                    className="flex-1"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={handleImport}
                     disabled={!csvText.trim() || isImporting}
-                    className="flex-1 px-4 py-2 bg-primary hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-semibold transition-colors"
+                    className="flex-1"
                   >
                     {isImporting ? 'Importing...' : 'Import'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </motion.div>

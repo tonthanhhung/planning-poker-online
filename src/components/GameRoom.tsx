@@ -147,9 +147,9 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
 
   // Determine if cards should be shown as revealed
   // - Always revealed if global game status is 'revealed'
-  // - Also revealed if viewing a historical COMPLETED issue that has votes (even if global status is 'voting')
+  // - Also revealed if viewing any issue with votes that is not the active voting issue
   // - NOT revealed for the current active voting issue (must click "Reveal" button)
-  const isViewingRevealed = game?.status === 'revealed' || (currentIssue && currentIssue.status === 'completed' && currentVotes.length > 0)
+  const isViewingRevealed = game?.status === 'revealed' || (currentIssue && currentVotes.length > 0 && currentIssue.id !== serverActiveIssue?.id)
 
   // Compute display status for issue tag
   // - "voted": issue has votes (indicates voting occurred on this issue)
@@ -394,18 +394,21 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     // Mark current issue as completed
     await updateIssueSocket(currentIssue.id, { status: 'completed' })
 
-    // Find next pending issue
-    const nextIssue = issues.find(i => i.status === 'pending' && i.id !== currentIssue.id)
+    // Find next issue by index (regardless of status) to allow navigation through all issues
+    const currentIndex = issues.findIndex(i => i.id === currentIssue.id)
+    const nextIndex = (currentIndex + 1) % issues.length
+    const nextIssue = issues[nextIndex]
 
     if (nextIssue) {
+      // Set the next issue to voting status so it becomes the active issue
       await updateIssueSocket(nextIssue.id, { status: 'voting' })
       await setStatus('voting')
+      // Set local viewing to the next issue
+      setViewingIssueId(nextIssue.id)
     } else {
       await setStatus('lobby')
     }
 
-    // Clear local viewing state to follow the server-tracked active issue
-    setViewingIssueId(null)
     setSelectedCard(null)
     setHasVoted(false)
   }
@@ -1259,6 +1262,10 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                   gameId={gameId}
                   socket={gameSocket}
                   pendingVote={pendingVote}
+                  onReveal={handleReveal}
+                  onResetVotes={handleResetVotes}
+                  onNextIssue={handleNextIssue}
+                  totalPlayers={players.length}
                 />
               </div>
 
@@ -1438,39 +1445,11 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                     </motion.div>
                   )}
 
-                  {/* Action Buttons - Show when viewing a revealed issue with votes, user is not a viewer */}
-                  {currentIssue && (game?.status === 'revealed' || (currentIssue.status === 'completed' && currentVotes.length > 0)) && !currentPlayer?.is_viewer && (
-                    <div className="flex justify-center gap-3">
-                      <button
-                        onClick={handleResetVotes}
-                        className="px-5 py-2 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-medium transition-colors"
-                      >
-                        Revote
-                      </button>
-                      <button
-                        onClick={handleNextIssue}
-                        className="px-5 py-2 bg-primary hover:bg-blue-600 rounded text-white font-medium transition-colors"
-                      >
-                        Next Issue
-                      </button>
-                    </div>
-                  )}
+                  {/* Action buttons and Reveal button moved to PokerTable center */}
                 </div>
               )}
 
-              {/* Reveal Button - Only visible when viewing the active voting issue */}
-              {(game?.status === 'voting' || game?.status === 'lobby') && currentIssue?.id === serverActiveIssue?.id && (
-                <div className="text-center mt-6 pt-6 border-t border-border">
-                  <button
-                    onClick={handleReveal}
-                    disabled={currentVotes.length === 0}
-                    className="px-6 py-2.5 bg-primary hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-white font-medium transition-colors"
-                    title={currentVotes.length === 0 ? 'Wait for players to vote first' : 'Reveal all votes'}
-                  >
-                    Reveal Votes ({currentVotes.length}/{players.length})
-                  </button>
-                </div>
-              )}
+              {/* Reveal button moved to PokerTable center */}
             </motion.div>
           </div>
           </div>

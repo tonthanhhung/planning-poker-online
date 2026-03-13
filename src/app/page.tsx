@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { io } from 'socket.io-client'
 import { v4 as uuidv4 } from 'uuid'
+import { Button } from '@/components/Button'
 
 const LAST_GAME_ID_KEY = 'planning_poker_last_game_id'
 
@@ -137,12 +138,12 @@ export default function Home() {
               <div className="text-xl font-semibold text-secondary">Planning Poker</div>
             </motion.div>
             <div className="flex gap-2">
-              <button
+              <Button
                 onClick={handleJoinGame}
-                className="px-4 py-2 text-secondary hover:bg-neutral-light rounded transition-colors font-medium"
+                variant="ghost"
               >
                 Join Game
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -180,21 +181,24 @@ export default function Home() {
                 className="w-full px-4 py-2.5 rounded border border-border text-secondary placeholder-neutral focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                 autoFocus
               />
-              <button
+              <Button
                 onClick={handleCreateGame}
                 disabled={!gameName.trim() || isCreating}
-                className="w-full py-2.5 bg-primary hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-white font-semibold transition-colors"
+                className="w-full"
+                size="lg"
               >
                 {isCreating ? 'Creating...' : 'Create Game'}
-              </button>
+              </Button>
 
               {!showCreateNew && (
-                <button
+                <Button
                   onClick={handleJoinGame}
-                  className="w-full py-2.5 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-semibold transition-colors"
+                  variant="secondary"
+                  className="w-full"
+                  size="lg"
                 >
                   Join Existing Game
-                </button>
+                </Button>
               )}
             </div>
           </div>

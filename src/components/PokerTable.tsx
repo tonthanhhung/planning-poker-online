@@ -34,6 +34,10 @@ interface PokerTableProps {
     issueId: string
     timestamp: number
   } | null
+  onReveal?: () => void
+  onResetVotes?: () => void
+  onNextIssue?: () => void
+  totalPlayers?: number
 }
 
 // Floating-UI powered hover popover for emoji reactions
@@ -142,6 +146,10 @@ export function PokerTable({
   gameId,
   socket,
   pendingVote,
+  onReveal,
+  onResetVotes,
+  onNextIssue,
+  totalPlayers = 0,
 }: PokerTableProps) {
   const currentVotes = currentIssueId ? votes[currentIssueId] || [] : []
   const [flyingReactions, setFlyingReactions] = useState<FlyingEmoji[]>([])
@@ -676,9 +684,38 @@ export function PokerTable({
             ) : currentVotes.length === 0 ? (
               <p className="text-neutral font-medium text-sm">Waiting for everyone to vote...</p>
             ) : !isRevealed ? (
-              <p className="text-neutral font-medium text-sm">Waiting for everyone to vote...</p>
+              <div className="flex flex-col items-center gap-4">
+                <p className="text-neutral font-medium text-sm mb-2">Votes submitted</p>
+                {onReveal && (
+                  <button
+                    onClick={onReveal}
+                    className="px-6 py-2.5 bg-primary hover:bg-blue-600 rounded text-white font-medium transition-colors shadow-md"
+                    title="Reveal all votes"
+                  >
+                    Reveal Votes ({currentVotes.length}/{totalPlayers})
+                  </button>
+                )}
+              </div>
             ) : (
-              renderVoteDistribution()
+              <div className="flex flex-col items-center gap-4">
+                {renderVoteDistribution()}
+                {onResetVotes && onNextIssue && (
+                  <div className="flex gap-3 mt-4">
+                    <button
+                      onClick={onResetVotes}
+                      className="px-5 py-2 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-medium transition-colors"
+                    >
+                      Revote
+                    </button>
+                    <button
+                      onClick={onNextIssue}
+                      className="px-5 py-2 bg-primary hover:bg-blue-600 rounded text-white font-medium transition-colors"
+                    >
+                      Next Issue
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
