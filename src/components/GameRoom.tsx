@@ -661,6 +661,17 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
               <div className="px-2 py-1 bg-neutral-light rounded text-xs font-medium text-secondary">
                 {players.length} {players.length === 1 ? 'player' : 'players'}
               </div>
+              
+              {/* Mobile: Burger menu button for Issues drawer */}
+              <button
+                onClick={() => setShowSidebar(true)}
+                className="md:hidden p-2 bg-neutral-light hover:bg-neutral-200 rounded transition-colors"
+                title="Show Issues"
+              >
+                <svg className="w-5 h-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
             </div>
           </div>
           
@@ -799,23 +810,171 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
         )}
       </AnimatePresence>
 
+      {/* Mobile Drawer - Issues List */}
+      <AnimatePresence>
+        {showSidebar && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSidebar(false)}
+              className="md:hidden fixed inset-0 bg-black/50 z-40"
+            />
+            {/* Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'tween', duration: 0.3 }}
+              className="md:hidden fixed right-0 top-0 h-full w-80 max-w-[85vw] bg-background z-50 shadow-2xl"
+            >
+              <div className="h-full flex flex-col">
+                {/* Drawer Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface">
+                  <h3 className="text-lg font-semibold text-secondary">Issues</h3>
+                  <button
+                    onClick={() => setShowSidebar(false)}
+                    className="p-2 hover:bg-neutral-light rounded transition-colors"
+                  >
+                    <svg className="w-5 h-5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                {/* Drawer Content */}
+                <div className="flex-1 overflow-y-auto p-4">
+                  {/* Add Issue Button */}
+                  <button
+                    onClick={() => setShowIssueInput(!showIssueInput)}
+                    className="w-full mb-4 py-2.5 bg-primary hover:bg-blue-600 rounded text-white text-sm font-medium transition-colors inline-flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Issue
+                  </button>
+
+                  {/* Add Issue Input */}
+                  {showIssueInput && (
+                    <div className="mb-4 space-y-2">
+                      <input
+                        type="text"
+                        placeholder="Issue title"
+                        value={newIssueTitle}
+                        onChange={(e) => setNewIssueTitle(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddIssue()}
+                        className="w-full px-3 py-2 rounded border border-border text-secondary placeholder-neutral focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleAddIssue}
+                        className="w-full py-2 bg-primary hover:bg-blue-600 rounded text-white text-sm font-medium transition-colors"
+                      >
+                        Add Issue
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Issues List */}
+                  <div className="space-y-2">
+                    {issues.map((issue) => {
+                      const issueVotes = votes[issue.id] || []
+                      const isVoted = getIssueDisplayStatus(issue, issueVotes) === 'voted'
+                      const isDeleting = deletingIssueId === issue.id
+                      const isViewing = currentIssue?.id === issue.id
+                      
+                      return (
+                        <motion.div
+                          key={issue.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={isDeleting ? { opacity: 0, x: 100 } : { opacity: 1, x: 0 }}
+                          onClick={() => {
+                            setViewingIssueId(issue.id)
+                            setSelectedCard(null)
+                            setHasVoted(false)
+                            setShowSidebar(false)
+                          }}
+                          className={`p-3 rounded cursor-pointer transition-colors border ${
+                            isViewing
+                              ? 'bg-blue-light border-primary/30'
+                              : 'bg-surface border-transparent hover:bg-neutral-light'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-secondary">
+                                {issue.title}
+                              </p>
+                              {issue.estimated_points && (
+                                <p className="text-xs text-primary mt-0.5">
+                                  {issue.estimated_points} points
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              {isVoted && (
+                                <span className="text-[10px] font-medium text-success bg-green-light px-1.5 py-0.5 rounded">
+                                  Voted
+                                </span>
+                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setDeletingIssueId(issue.id)
+                                  handleDeleteIssue(issue.id)
+                                }}
+                                className="p-1 hover:bg-red-50 rounded text-neutral hover:text-error"
+                                title="Remove task"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+
+                  {issues.length === 0 && (
+                    <div className="text-center py-8">
+                      <div className="w-12 h-12 rounded-full bg-neutral-light flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-6 h-6 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      </div>
+                      <p className="text-neutral text-sm">No issues yet</p>
+                      <p className="text-neutral text-xs mt-1">Click &quot;Add&quot; to create one</p>
+                    </div>
+                  )}
+
+                  {/* Clear Voted Tasks Button */}
+                  {issues.length > 0 && (
+                    <button
+                      onClick={handleClearVotedTasks}
+                      className="w-full mt-4 py-2 px-3 bg-red-50 hover:bg-red-100 text-error rounded text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Clear Voted Tasks
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       <div className="px-4 py-6">
         <div className="grid md:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {/* Main Game Area - Full width on mobile, 3/4 on md */}
           <div className="md:col-span-3">
-            {/* Mobile: Toggle sidebar button */}
-            <div className="md:hidden mb-6">
-              <button
-                onClick={() => setShowSidebar(!showSidebar)}
-                className="w-full py-2.5 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-                {showSidebar ? 'Hide Issues' : 'Show Issues'}
-              </button>
-            </div>
-            
             <div className="space-y-6">
               {/* Current Issue */}
             <motion.div
