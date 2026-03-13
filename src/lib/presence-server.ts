@@ -14,6 +14,7 @@ import {
   setCurrentIssue,
   removePlayer,
   updatePlayerLastActive,
+  updatePlayerName,
 } from './db'
 import type { Game, Player, Issue, Vote } from '@/types'
 
@@ -260,6 +261,32 @@ export class PresenceServer {
           if (callback) callback({ success: true })
         } catch (error) {
           console.error('Failed to remove player:', error)
+          if (callback) callback({ success: false, error: error instanceof Error ? error.message : 'Unknown error' })
+        }
+      })
+
+      // Update player name
+      socket.on('update-player-name', async ({ playerId, newName }, callback) => {
+        try {
+          console.log(`Updating player ${playerId} name to: ${newName}`)
+          await updatePlayerName(playerId, newName)
+          
+          // Update presence
+          const presence = this.presence.get(playerId)
+          if (presence) {
+            presence.playerName = newName
+            this.presence.set(playerId, presence)
+          }
+          
+          // Broadcast to all clients in game
+          const gameId = presence?.gameId
+          if (gameId) {
+            this.io?.to(gameId).emit('player-updated', { playerId, newName })
+          }
+          
+          if (callback) callback({ success: true })
+        } catch (error) {
+          console.error('Failed to update player name:', error)
           if (callback) callback({ success: false, error: error instanceof Error ? error.message : 'Unknown error' })
         }
       })

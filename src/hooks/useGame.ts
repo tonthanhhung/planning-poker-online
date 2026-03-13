@@ -259,6 +259,12 @@ export function useGame(
       setPlayers(prev => prev.filter(p => p.id !== leftPlayerId))
     }
 
+    // Player updated (name change)
+    const handlePlayerUpdated = ({ playerId: updatedPlayerId, newName }: { playerId: string; newName: string }) => {
+      console.log('Player updated:', updatedPlayerId, newName)
+      setPlayers(prev => prev.map(p => (p.id === updatedPlayerId ? { ...p, name: newName } : p)))
+    }
+
     // Issue created
     const handleIssueCreated = (issue: Issue) => {
       console.log('Issue created:', issue)
@@ -300,6 +306,7 @@ export function useGame(
     socket.on('game-updated', handleGameUpdated)
     socket.on('player-joined', handlePlayerJoined)
     socket.on('player-left', handlePlayerLeft)
+    socket.on('player-updated', handlePlayerUpdated)
     socket.on('issue-created', handleIssueCreated)
     socket.on('issue-updated', handleIssueUpdated)
     socket.on('issue-deleted', handleIssueDeleted)
@@ -310,6 +317,7 @@ export function useGame(
       socket.off('game-updated', handleGameUpdated)
       socket.off('player-joined', handlePlayerJoined)
       socket.off('player-left', handlePlayerLeft)
+      socket.off('player-updated', handlePlayerUpdated)
       socket.off('issue-created', handleIssueCreated)
       socket.off('issue-updated', handleIssueUpdated)
       socket.off('issue-deleted', handleIssueDeleted)

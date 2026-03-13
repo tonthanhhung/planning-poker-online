@@ -158,6 +158,14 @@ export async function removePlayer(playerId: string): Promise<void> {
   await pool.query('DELETE FROM players WHERE id = $1', [playerId])
 }
 
+// Update player name
+export async function updatePlayerName(playerId: string, newName: string): Promise<void> {
+  await pool.query(
+    'UPDATE players SET name = $1 WHERE id = $2',
+    [newName, playerId]
+  )
+}
+
 // Get all games
 export async function getAllGames(): Promise<Game[]> {
   const result = await pool.query('SELECT * FROM games ORDER BY created_at DESC')
