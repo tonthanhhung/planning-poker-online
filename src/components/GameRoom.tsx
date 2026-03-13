@@ -798,11 +798,11 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
       </AnimatePresence>
 
       <div className="px-4 py-6">
-        <div className="grid lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-          {/* Main Game Area - Full width on mobile, 3/4 on lg */}
-          <div className="lg:col-span-3 space-y-6">
+        <div className="grid md:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          {/* Main Game Area - Full width on mobile, 3/4 on md */}
+          <div className="md:col-span-3 space-y-6">
             {/* Mobile: Toggle sidebar button */}
-            <div className="lg:hidden mb-4">
+            <div className="md:hidden mb-4">
               <button
                 onClick={() => setShowSidebar(!showSidebar)}
                 className="w-full py-2.5 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-medium transition-colors flex items-center justify-center gap-2"
@@ -1075,9 +1075,9 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
             </motion.div>
           </div>
 
-          {/* Sidebar - Issues List - Toggleable on mobile, always visible on lg */}
-          <div className={`lg:col-span-1 ${showSidebar ? 'block' : 'hidden'} lg:block`}>
-            <div className="bg-surface rounded-lg border border-border elevation-medium p-4 lg:sticky lg:top-20 max-h-[calc(100vh-120px)] lg:max-h-96 overflow-y-auto">
+          {/* Sidebar - Issues List - Toggleable on mobile, always visible on md */}
+          <div className={`md:col-span-1 ${showSidebar ? 'block' : 'hidden'} md:block`}>
+            <div className="bg-surface rounded-lg border border-border elevation-medium p-4 md:sticky md:top-20 max-h-[calc(100vh-120px)] md:max-h-96 overflow-y-auto">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-secondary">Issues</h3>
                 <button
