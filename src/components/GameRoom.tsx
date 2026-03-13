@@ -106,9 +106,6 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
   // Share modal state
   const [showShareModal, setShowShareModal] = useState(false)
   
-  // Mobile player list expanded state
-  const [showMobilePlayers, setShowMobilePlayers] = useState(false)
-  
   // Flying card animation state
   const [flyingCard, setFlyingCard] = useState<{
     value: number | typeof COFFEE_CARD
@@ -699,206 +696,87 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header - Simplified for mobile */}
+      {/* Header - Single row with game name and 6 buttons */}
       <header className="bg-surface border-b border-border elevation-low sticky top-0 z-50">
         <div className="px-3 py-2 md:px-4 md:py-3">
-          {/* Top row: Game title and actions */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <h1 className="text-base md:text-lg font-semibold text-secondary truncate">{game?.name}</h1>
+          {/* Single row: Game title and all actions */}
+          <div className="flex items-center justify-between gap-2">
+            {/* Left: Game name */}
+            <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
+              <h1 className="text-sm md:text-lg font-semibold text-secondary truncate">{game?.name}</h1>
             </div>
             
+            {/* Right: All 6 buttons - consistent sizing */}
             <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
-              {/* Simple Mode Toggle Button */}
+              {/* 1. Simple Mode Toggle */}
               {onToggleMode && (
                 <button
                   onClick={onToggleMode}
-                  className="px-2 py-1 md:px-3 md:py-1.5 text-xs md:text-sm bg-neutral-light hover:bg-neutral-200 text-secondary rounded transition-colors whitespace-nowrap flex items-center gap-1"
+                  className="px-2 py-1.5 text-xs bg-neutral-light hover:bg-neutral-200 text-secondary rounded transition-colors whitespace-nowrap flex items-center justify-center gap-1 h-8 w-[72px] md:w-auto"
                 >
-                  <svg className="w-3.5 h-3.5 md:w-3 md:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
                   </svg>
-                  <span className="hidden md:inline">Simple Mode</span>
-                  <span className="md:hidden">Simple</span>
+                  <span className="hidden md:inline">Simple</span>
                 </button>
               )}
               
-              {/* Share button - shows game ID */}
+              {/* 2. Share button */}
               <button
                 onClick={() => setShowShareModal(true)}
-                className="p-2 md:px-3 md:py-1.5 bg-neutral-light hover:bg-neutral-200 rounded transition-colors flex items-center gap-1"
+                className="px-2 py-1.5 bg-neutral-light hover:bg-neutral-200 rounded transition-colors flex items-center justify-center gap-1 h-8 w-[72px] md:w-auto text-xs"
                 title="Share game"
               >
-                <svg className="w-4 h-4 md:w-3.5 md:h-3.5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                <svg className="w-3.5 h-3.5 text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
-                <span className="hidden md:inline text-xs font-medium text-secondary">Share</span>
+                <span className="hidden md:inline">Share</span>
               </button>
               
-              {/* Mobile: Burger menu button for Issues drawer */}
+              {/* 3. Issues button (mobile only) */}
               <button
                 onClick={() => setShowSidebar(true)}
-                className="md:hidden p-2 bg-neutral-light hover:bg-neutral-200 rounded transition-colors"
+                className="md:hidden px-2 py-1.5 bg-neutral-light hover:bg-neutral-200 rounded transition-colors h-8 w-[72px] flex items-center justify-center"
                 title="Show Issues"
               >
-                <svg className="w-5 h-5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <svg className="w-3.5 h-3.5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
+              </button>
+              
+              {/* 4. Player count badge */}
+              <div className="px-2 py-1.5 bg-neutral-light rounded text-xs font-medium text-secondary h-8 flex items-center justify-center min-w-[72px]">
+                <span>{players.length}</span>
+                <span className="hidden md:inline ml-1">players</span>
+              </div>
+              
+              {/* 5. Current player name */}
+              <button
+                onClick={openNameEditor}
+                className="px-2 py-1.5 bg-neutral-light hover:bg-neutral-200 rounded transition-colors text-xs font-medium text-secondary h-8 truncate max-w-[80px] md:max-w-[100px] flex items-center justify-center"
+                title="Click to edit your name"
+              >
+                {playerName}
+              </button>
+              
+              {/* 6. Leave Game button */}
+              <button
+                onClick={() => {
+                  if (confirm('Leave this game? You can always rejoin later.')) {
+                    localStorage.removeItem('planning_poker_last_game_id')
+                    window.location.href = '/'
+                  }
+                }}
+                className="px-2 py-1.5 bg-neutral-light hover:bg-red-50 text-secondary hover:text-error rounded transition-colors text-xs font-medium h-8 flex items-center justify-center gap-1 w-[72px] md:w-auto"
+                title="Leave game"
+              >
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="hidden md:inline">Leave</span>
               </button>
             </div>
           </div>
-          
-          {/* Bottom row: Player info and actions - Simplified */}
-          <div className="flex items-center gap-2 mt-2">
-            {/* Mobile: Collapsed player count that expands on tap */}
-            <button
-              onClick={() => setShowMobilePlayers(!showMobilePlayers)}
-              className="md:hidden px-2 py-1 bg-neutral-light rounded text-xs font-medium text-secondary flex-shrink-0"
-            >
-              {players.length} {players.length === 1 ? 'player' : 'players'}
-              <svg className={`w-3 h-3 inline ml-1 transition-transform ${showMobilePlayers ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            
-            {/* Desktop: Player avatars */}
-            <div className="hidden md:flex -space-x-2 flex-shrink-0">
-              {players.map((player) => {
-                const isActive = isPlayerActive(player.id)
-                const isCurrentPlayer = player.name === playerName
-                const hasVoted = currentIssue && currentVotes.some(v => v.player_id === player.id)
-
-                return (
-                  <motion.div 
-                    key={player.id} 
-                    className="relative group flex-shrink-0"
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                  >
-                    <motion.div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-surface elevation-low ${
-                        isActive ? 'bg-primary' : 'bg-neutral'
-                      }`}
-                      title={`${player.name} ${isActive ? '(online)' : '(offline)'}`}
-                      animate={hasVoted ? {
-                        scale: [1, 1.12, 1],
-                        boxShadow: [
-                          '0 0 0 0 rgba(54, 179, 126, 0)',
-                          '0 0 0 6px rgba(54, 179, 126, 0.35)',
-                          '0 0 0 0 rgba(54, 179, 126, 0)',
-                        ],
-                      } : {}}
-                      transition={hasVoted ? { duration: 1.2, repeat: Infinity } : {}}
-                    >
-                      {player.name.charAt(0).toUpperCase()}
-                    </motion.div>
-
-                    {isActive && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-success rounded-full border-2 border-surface" />
-                    )}
-                    
-                    {hasVoted && (
-                      <motion.div 
-                        className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-success rounded-full border-2 border-surface flex items-center justify-center"
-                        initial={{ scale: 0, rotate: -45 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                      >
-                        <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </motion.div>
-                    )}
-
-                    {!isActive && (isCurrentPlayer || players.find(p => p.name === playerName)?.is_facilitator) && (
-                      <button
-                        onClick={() => handleRemovePlayer(player.id)}
-                        className="absolute -top-2 -right-2 w-5 h-5 bg-error hover:bg-red-600 rounded-full flex items-center justify-center text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity border-2 border-surface z-10"
-                        title="Remove player"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </motion.div>
-                )
-              })}
-            </div>
-
-            {/* Current player name with edit button - Simplified */}
-            <button
-              onClick={openNameEditor}
-              className="flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 bg-neutral-light hover:bg-neutral-200 rounded transition-colors group flex-shrink-0"
-              title="Click to edit your name"
-            >
-              <span className="text-secondary font-medium text-xs md:text-sm truncate max-w-[80px] md:max-w-none">{playerName}</span>
-              <svg
-                className="w-3 h-3 md:w-3.5 md:h-3.5 text-neutral group-hover:text-secondary transition-colors flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </button>
-
-            {/* Leave Game button - Icon + text side by side */}
-            <button
-              onClick={() => {
-                if (confirm('Leave this game? You can always rejoin later.')) {
-                  localStorage.removeItem('planning_poker_last_game_id')
-                  window.location.href = '/'
-                }
-              }}
-              className="px-2 md:px-3 md:py-1.5 py-2 bg-neutral-light hover:bg-red-50 text-neutral hover:text-error rounded transition-colors flex-shrink-0 flex items-center gap-1"
-              title="Leave game"
-            >
-              <svg className="w-4 h-4 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              <span className="text-sm font-medium">Leave</span>
-            </button>
-          </div>
-          
-          {/* Mobile: Expanded player list */}
-          {showMobilePlayers && (
-            <div className="md:hidden mt-2 pt-2 border-t border-border">
-              <div className="flex flex-wrap gap-2">
-                {players.map((player) => {
-                  const isActive = isPlayerActive(player.id)
-                  const isCurrentPlayer = player.name === playerName
-                  const isFacilitator = players.find(p => p.name === playerName)?.is_facilitator
-
-                  return (
-                    <div key={player.id} className="flex items-center gap-1.5 px-2 py-1 bg-neutral-light rounded">
-                      <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                          isActive ? 'bg-primary' : 'bg-neutral'
-                        }`}
-                      >
-                        {player.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-xs text-secondary truncate max-w-[100px]">{player.name}</span>
-                      {isActive && (
-                        <div className="w-2 h-2 bg-success rounded-full" />
-                      )}
-                      {!isActive && (isCurrentPlayer || isFacilitator) && (
-                        <button
-                          onClick={() => handleRemovePlayer(player.id)}
-                          className="p-0.5 text-error hover:bg-red-100 rounded"
-                          title="Remove player"
-                        >
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </div>
       </header>
 
