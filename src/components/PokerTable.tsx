@@ -355,15 +355,25 @@ export function PokerTable({
     // Viewers don't have cards - show a viewer icon instead
     if (player.is_viewer) {
       return (
-        <div
+        <motion.div
           data-player-card={player.id}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
           className="w-[46px] h-[64px] rounded-lg bg-purple-50 border-2 border-purple-200 shadow-sm flex items-center justify-center relative group"
         >
-          <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <motion.svg 
+            className="w-5 h-5 text-purple-400" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-          </svg>
-        </div>
+          </motion.svg>
+        </motion.div>
       )
     }
 
@@ -382,28 +392,50 @@ export function PokerTable({
           <motion.div
             data-player-card={player.id}
             className="w-[46px] h-[64px] relative group cursor-pointer"
-            initial={wasRecentlyPlaced ? { rotateY: 0 } : { rotateY: 180 }}
-            animate={{ rotateY: 180 }}
-            transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-            whileHover={{ scale: 1.05 }}
+            initial={{ rotateY: 0, scale: 0.8 }}
+            animate={{ rotateY: 180, scale: 1 }}
+            transition={{ 
+              duration: 0.6, 
+              ease: [0.34, 1.56, 0.64, 1],
+              type: 'spring',
+              stiffness: 200,
+              damping: 20,
+            }}
+            whileHover={{ scale: 1.08, rotateY: 175 }}
             style={{ transformStyle: 'preserve-3d', perspective: 1000 }}
-            key={wasRecentlyPlaced && recentPlacement ? `placed-${recentPlacement.timestamp}` : 'static'}
+            key={wasRecentlyPlaced && recentPlacement ? `placed-${recentPlacement.timestamp}` : 'static-voted'}
           >
             {/* Front face (face-up, shows value) */}
-            <div
+            <motion.div
               className="absolute inset-0 rounded-lg bg-surface border-2 border-primary shadow-md flex items-center justify-center backface-hidden"
               style={{ backfaceVisibility: 'hidden', transform: 'rotateY(0deg)' }}
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.3, type: 'spring', stiffness: 400 }}
             >
-              <span className="text-lg font-bold text-primary">
+              <motion.span 
+                className="text-lg font-bold text-primary"
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.4, type: 'spring', stiffness: 400 }}
+              >
                 {wasRecentlyPlaced && recentPlacement 
                   ? recentPlacement.value 
                   : (playerVote?.points ?? '?')}
-              </span>
-            </div>
+              </motion.span>
+            </motion.div>
             {/* Back face (face-down, blue) */}
-            <div 
+            <motion.div 
               className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary to-blue-700 border-2 border-blue-400 shadow-md backface-hidden"
               style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+              animate={{
+                background: [
+                  'linear-gradient(135deg, #0052CC 0%, #1E40AF 100%)',
+                  'linear-gradient(135deg, #1E40AF 0%, #0052CC 100%)',
+                  'linear-gradient(135deg, #0052CC 0%, #1E40AF 100%)',
+                ],
+              }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
             />
           </motion.div>
         )
@@ -411,20 +443,56 @@ export function PokerTable({
 
       if (isRevealed && playerVote) {
         return (
-          <div
+          <motion.div
             data-player-card={player.id}
-            className="w-[46px] h-[64px] rounded-lg bg-surface border-2 border-primary shadow-md flex items-center justify-center relative group cursor-pointer transition-transform hover:scale-105"
+            initial={{ scale: 0.5, rotate: -180, opacity: 0 }}
+            animate={{ 
+              scale: 1, 
+              rotate: 0, 
+              opacity: 1,
+            }}
+            transition={{ 
+              type: 'spring',
+              stiffness: 200,
+              damping: 15,
+              delay: 0.1,
+            }}
+            whileHover={{ 
+              scale: 1.15, 
+              rotate: [-2, 2, -2, 0],
+              y: -8,
+              transition: { duration: 0.3 }
+            }}
+            className="w-[46px] h-[64px] rounded-lg bg-surface border-2 border-primary shadow-md flex items-center justify-center relative group cursor-pointer"
           >
-            <span className="text-lg font-bold text-primary">
+            <motion.span 
+              className="text-lg font-bold text-primary"
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2, type: 'spring', stiffness: 400 }}
+            >
               {playerVote.points < 0 ? '☕' : playerVote.points}
-            </span>
-          </div>
+            </motion.span>
+            {/* Subtle glow effect for revealed cards */}
+            <motion.div
+              className="absolute inset-0 rounded-lg border-2 border-primary/30"
+              initial={{ scale: 1, opacity: 0 }}
+              animate={{ 
+                scale: [1, 1.2, 1],
+                opacity: [0, 0.5, 0],
+              }}
+              transition={{ duration: 1.5, delay: 0.3 }}
+            />
+          </motion.div>
         )
       }
 
       return (
-        <div
+        <motion.div
           data-player-card={player.id}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
           className="w-[46px] h-[64px] rounded-lg bg-neutral-light border-2 border-border shadow-sm relative group"
         />
       )
@@ -601,11 +669,14 @@ export function PokerTable({
           {/* Central table - centered */}
           <div className="w-full max-w-lg md:max-w-xl min-h-[160px] sm:min-h-[200px] md:min-h-[240px] rounded-xl sm:rounded-2xl bg-slate-100 border border-slate-200 shadow-sm flex flex-col items-center justify-center px-6 py-8 sm:px-8 sm:py-10">
             {!currentIssueId ? (
-              <p className="text-neutral font-medium text-sm">Add an issue to start voting</p>
+              <div className="text-center">
+                <p className="text-neutral font-medium text-sm mb-1">No task selected</p>
+                <p className="text-neutral text-xs">Add a task to start your first vote</p>
+              </div>
             ) : currentVotes.length === 0 ? (
-              <p className="text-neutral font-medium text-sm">Waiting for player&apos;s votes...</p>
+              <p className="text-neutral font-medium text-sm">Waiting for everyone to vote...</p>
             ) : !isRevealed ? (
-              <p className="text-neutral font-medium text-sm">Waiting for player&apos;s votes...</p>
+              <p className="text-neutral font-medium text-sm">Waiting for everyone to vote...</p>
             ) : (
               renderVoteDistribution()
             )}

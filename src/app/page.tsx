@@ -158,10 +158,10 @@ export default function Home() {
         >
           <div className="text-center mb-12">
             <h1 className="text-5xl font-bold text-secondary mb-4">
-              Scrum Poker for agile teams
+              Estimate Together, Ship Faster
             </h1>
             <p className="text-xl text-neutral mb-8">
-              Easy-to-use and fun estimations. Vote and estimate issues in real-time.
+              Make estimation effortless. Vote, discuss, and reach consensus with your team - in real-time.
             </p>
           </div>
 
@@ -213,10 +213,10 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-lg font-semibold text-secondary mb-2">
-                Real-Time Voting
+                Everyone Votes Together
               </h3>
               <p className="text-neutral">
-                Vote and estimate issues in real-time with your team. See results at a glance.
+                Cast your vote and see everyone&apos;s estimates appear in real-time. No waiting, no confusion.
               </p>
             </motion.div>
 
@@ -232,10 +232,10 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-lg font-semibold text-secondary mb-2">
-                Issue Management
+                Track Your Tasks
               </h3>
               <p className="text-neutral">
-                Manage all your issues in one place. Track voting progress and consensus.
+                Add tasks, track progress, and see which items need discussion. Stay organized as a team.
               </p>
             </motion.div>
 
@@ -251,10 +251,10 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-lg font-semibold text-secondary mb-2">
-                Fun & Engaging
+                Made for Collaboration
               </h3>
               <p className="text-neutral">
-                Beautiful card animations and coffee break options make estimation enjoyable.
+                Smooth animations, emoji reactions, and coffee breaks keep everyone engaged and having fun.
               </p>
             </motion.div>
           </div>

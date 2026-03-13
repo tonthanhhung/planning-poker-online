@@ -18,6 +18,60 @@ interface PokerCardProps {
   animationState?: CardAnimationState
 }
 
+// Color palette for different card values to add visual variety
+const getCardColor = (value: number | typeof COFFEE_CARD, isSelected: boolean) => {
+  if (isSelected) {
+    return {
+      bg: 'bg-gradient-to-br from-primary to-blue-600',
+      border: 'border-primary',
+      text: 'text-white',
+      shadow: 'shadow-lg shadow-blue-500/30',
+    }
+  }
+  
+  if (value === COFFEE_CARD) {
+    return {
+      bg: 'bg-gradient-to-br from-amber-100 to-amber-50',
+      border: 'border-amber-300',
+      text: 'text-amber-700',
+      shadow: 'shadow-sm',
+    }
+  }
+  
+  // Subtle color coding for different value ranges
+  if (typeof value === 'number') {
+    if (value <= 3) {
+      return {
+        bg: 'bg-gradient-to-br from-green-50 to-emerald-50',
+        border: 'border-green-200',
+        text: 'text-green-700',
+        shadow: 'shadow-sm',
+      }
+    } else if (value <= 13) {
+      return {
+        bg: 'bg-gradient-to-br from-blue-50 to-indigo-50',
+        border: 'border-blue-200',
+        text: 'text-blue-700',
+        shadow: 'shadow-sm',
+      }
+    } else {
+      return {
+        bg: 'bg-gradient-to-br from-purple-50 to-pink-50',
+        border: 'border-purple-200',
+        text: 'text-purple-700',
+        shadow: 'shadow-sm',
+      }
+    }
+  }
+  
+  return {
+    bg: 'bg-surface',
+    border: 'border-border',
+    text: 'text-secondary',
+    shadow: 'shadow-sm',
+  }
+}
+
 export function PokerCard({ 
   value, 
   isSelected = false, 
@@ -35,22 +89,45 @@ export function PokerCard({
   }
 
   const displayValue = value === COFFEE_CARD ? COFFEE_CARD : value
+  const colors = getCardColor(value, isSelected)
 
   if (isHidden && !isRevealed) {
     return (
       <motion.div
         className={`relative ${sizeClasses[size]}`}
-        whileHover={!disabled ? { scale: 1.05, y: -5 } : {}}
-        whileTap={!disabled ? { scale: 0.95 } : {}}
+        whileHover={!disabled ? { 
+          scale: 1.08, 
+          y: -8,
+          rotate: [-1, 1, -1, 0],
+          transition: { duration: 0.2 }
+        } : {}}
+        whileTap={!disabled ? { scale: 0.92, rotate: 2 } : {}}
+        initial={false}
       >
-        <div className={`
-          w-full h-full rounded-lg bg-gradient-to-br from-primary to-blue-700
-          flex items-center justify-center
-          border-2 border-blue-400 shadow-md
-          ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}
-        `}>
-          <div className="text-blue-200 font-semibold text-xl">?</div>
-        </div>
+        <motion.div
+          className={`
+            w-full h-full rounded-lg bg-gradient-to-br from-primary to-blue-700
+            flex items-center justify-center
+            border-2 border-blue-400 shadow-md
+            ${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''}
+          `}
+          animate={{
+            background: [
+              'linear-gradient(135deg, #0052CC 0%, #1E40AF 100%)',
+              'linear-gradient(135deg, #1E40AF 0%, #0052CC 100%)',
+              'linear-gradient(135deg, #0052CC 0%, #1E40AF 100%)',
+            ],
+          }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+        >
+          <motion.div 
+            className="text-blue-200 font-semibold text-xl"
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            ?
+          </motion.div>
+        </motion.div>
       </motion.div>
     )
   }
@@ -59,22 +136,54 @@ export function PokerCard({
     <motion.div
       className={`relative ${sizeClasses[size]} cursor-pointer`}
       onClick={() => !disabled && onClick?.()}
-      whileHover={!disabled ? { scale: 1.05, y: -5 } : {}}
-      whileTap={!disabled ? { scale: 0.95 } : {}}
-      animate={isSelected ? { y: -8 } : { y: 0 }}
+      whileHover={!disabled ? { 
+        scale: 1.08, 
+        y: -8,
+        rotate: [-0.5, 0.5, -0.5, 0],
+        transition: { duration: 0.15 }
+      } : {}}
+      whileTap={!disabled ? { 
+        scale: 0.92, 
+        y: -4,
+        rotate: 1,
+        transition: { duration: 0.1 }
+      } : {}}
+      animate={isSelected ? { 
+        y: -10,
+        rotate: [0, -1, 1, 0],
+        transition: { duration: 0.3 }
+      } : { y: 0, rotate: 0 }}
+      initial={{ scale: 0.8, opacity: 0 }}
+      whileInView={{ scale: 1, opacity: 1 }}
+      viewport={{ once: true }}
+      transition={{
+        type: 'spring',
+        stiffness: 400,
+        damping: 25,
+      }}
     >
-      <div className={`
-        w-full h-full rounded-lg
-        flex items-center justify-center
-        border-2 transition-all duration-200
-        ${isSelected 
-          ? 'bg-primary border-primary shadow-md elevation-medium' 
-          : 'bg-surface border-border hover:border-primary shadow-sm'}
-      `}>
-        <span className={`font-bold ${isSelected ? 'text-white' : 'text-secondary'}`}>
+      <motion.div 
+        className={`
+          w-full h-full rounded-lg
+          flex items-center justify-center
+          border-2 transition-all duration-200
+          ${colors.bg} ${colors.border} ${colors.shadow}
+          ${isSelected ? 'ring-2 ring-primary ring-offset-2 elevation-medium' : ''}
+        `}
+        whileHover={!disabled && !isSelected ? {
+          boxShadow: '0 12px 24px rgba(0,82,204,0.15)',
+        } : {}}
+      >
+        <motion.span 
+          className={`font-bold ${colors.text}`}
+          animate={isSelected ? {
+            scale: [1, 1.15, 1],
+          } : {}}
+          transition={{ duration: 0.3 }}
+        >
           {displayValue}
-        </span>
-      </div>
+        </motion.span>
+      </motion.div>
     </motion.div>
   )
 }
