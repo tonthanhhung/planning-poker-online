@@ -76,7 +76,7 @@ export function useGame(
   gameId: string | null,
   playerId: string | null,
   playerName: string
-): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean } & UseGameActions & UseGameGamification & UseGameSyncState {
+): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean; trackActivity: () => void } & UseGameActions & UseGameGamification & UseGameSyncState {
   const [game, setGame] = useState<Game | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
   const [issues, setIssues] = useState<Issue[]>([])
@@ -86,108 +86,8 @@ export function useGame(
   const [error, setError] = useState<string | null>(null)
   const [votesResetKey, setVotesResetKey] = useState(0)
   
-  // Track total revotes across all issues (incremented when votes are reset during voting)
-  const [totalRevotes, setTotalRevotes] = useState(() => {
-    if (typeof window !== 'undefined' && gameId) {
-      const stored = localStorage.getItem(`revotes_${gameId}`)
-      return stored ? parseInt(stored, 10) : 0
-    }
-    return 0
-  })
-  
-  // Persist totalRevotes to localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined' && gameId) {
-      localStorage.setItem(`revotes_${gameId}`, totalRevotes.toString())
-    }
-  }, [totalRevotes, gameId])
-  
-  // Track all historical votes for streak calculation (persists across reveals)
-  const [allIssueStats, setAllIssueStats] = useState<IssueVoteStats[]>(() => {
-    if (typeof window !== 'undefined' && gameId) {
-      const stored = localStorage.getItem(`issueStats_${gameId}`)
-      return stored ? JSON.parse(stored) : []
-    }
-    return []
-  })
-  
-  // Persist allIssueStats to localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined' && gameId) {
-      localStorage.setItem(`issueStats_${gameId}`, JSON.stringify(allIssueStats))
-    }
-  }, [allIssueStats, gameId])
-  
-  // Get current issue ID (the one with status 'voting')
-  const currentIssueId = useMemo(() => {
-    return issues.find(i => i.status === 'voting')?.id || null
-  }, [issues])
-  
-  // Calculate streak stats for all players
-  const streakStats = useMemo((): PlayerStreakStats[] => {
-    if (allIssueStats.length === 0 || players.length === 0) return []
-    
-    // Initialize stats for each player
-    const statsMap = new Map<string, PlayerStreakStats>()
-    players.forEach(player => {
-      statsMap.set(player.id, {
-        playerId: player.id,
-        playerName: player.name,
-        totalVotes: 0,
-        majorityAlignments: 0,
-        alignmentPercentage: 0,
-      })
-    })
-    
-    // Process each issue's stats
-    allIssueStats.forEach(issueStats => {
-      if (!issueStats.mode) return
-      
-      // Use stored playerVotes from allIssueStats (persists after revotes)
-      const playerVotes = issueStats.playerVotes || []
-      
-      playerVotes.forEach(vote => {
-        if (vote.points < 0) return // Skip coffee breaks
-        
-        const playerStats = statsMap.get(vote.playerId)
-        if (playerStats) {
-          playerStats.totalVotes += 1
-          // Check if this player's vote matches the mode (majority)
-          if (vote.points === issueStats.mode) {
-            playerStats.majorityAlignments += 1
-          }
-        }
-      })
-    })
-    
-    // Calculate percentages and convert to array
-    const result = Array.from(statsMap.values())
-      .filter(s => s.totalVotes > 0)
-      .map(s => ({
-        ...s,
-        alignmentPercentage: Math.round((s.majorityAlignments / s.totalVotes) * 100),
-      }))
-      .sort((a, b) => {
-        // Sort by alignment percentage (descending), then by total votes (descending)
-        if (b.alignmentPercentage !== a.alignmentPercentage) {
-          return b.alignmentPercentage - a.alignmentPercentage
-        }
-        return b.totalVotes - a.totalVotes
-      })
-    
-    return result
-  }, [allIssueStats, players])
-  
-  // Get top 2 streak leaders
-  const topStreakLeaders = useMemo(() => streakStats.slice(0, 2), [streakStats])
-  
-  // Check if streak stats should be shown (>= 5 completed tasks OR >= 3 total revotes)
-  const shouldShowStreakStats = useMemo(() => {
-    const completedIssues = issues.filter(i => i.status === 'completed').length
-    return completedIssues >= 5 || totalRevotes >= 3
-  }, [issues, totalRevotes])
-
-  const { socket, isConnected } = useSocket(gameId, playerId, playerName)
+  // Use the shared socket hook
+  const { socket, isConnected, trackActivity } = useSocket(gameId, playerId, playerName)
 
   // Load initial game data
   const loadGame = useCallback(async () => {
@@ -329,15 +229,16 @@ export function useGame(
   // Update game status
   const updateGameStatus = useCallback(
     async (status: GameStatus) => {
-      if (!gameId || !socket) return
+      if (!gameId || !socket || !playerId) return
 
-      socket.emit('update-game-status', { gameId, status }, (response: any) => {
+      trackActivity()
+      socket.emit('update-game-status', { gameId, status, playerId }, (response: any) => {
         if (!response.success) {
           console.error('Failed to update game status:', response.error)
         }
       })
     },
-    [gameId, socket]
+    [gameId, socket, playerId, trackActivity]
   )
 
   // Submit vote
@@ -491,6 +392,7 @@ export function useGame(
     setVotes,
     socket,
     isConnected,
+    trackActivity,
     // Gamification stats
     streakStats,
     topStreakLeaders,

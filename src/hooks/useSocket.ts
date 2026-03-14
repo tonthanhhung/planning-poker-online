@@ -16,6 +16,7 @@ interface UseSocketReturn {
   isConnecting: boolean
   error: string | null
   presence: Map<string, PlayerPresence>
+  trackActivity: () => void
 }
 
 export function useSocket(
@@ -98,20 +99,15 @@ export function useSocket(
     })
   }, [socket, isConnected, gameId, playerId, playerName])
 
-  // Send periodic pings to maintain presence
-  useEffect(() => {
+  // Activity tracking to maintain presence (only on meaningful actions, not periodic pings)
+  // This allows the server to auto-suspend when idle while still tracking active players
+  const trackActivity = useCallback(() => {
     if (!socket || !isConnected || !gameId || !playerId) return
-
-    const pingInterval = setInterval(() => {
-      socket.emit('ping', { gameId, playerId })
-    }, 5000)
-
-    return () => {
-      clearInterval(pingInterval)
-    }
+    socket.emit('activity', { gameId, playerId })
   }, [socket, isConnected, gameId, playerId])
 
   return {
+    trackActivity,
     socket,
     isConnected,
     isConnecting,

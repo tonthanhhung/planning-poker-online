@@ -29,9 +29,19 @@ export interface PlayerPresence {
 export class PresenceServer {
   private io: SocketIOServer | null = null
   private presence: Map<string, PlayerPresence> = new Map()
-  private checkInterval: NodeJS.Timeout | null = null
-  private readonly PING_INTERVAL = 5000 // 5 seconds
-  private readonly OFFLINE_THRESHOLD = 10000 // 10 seconds
+  // No more periodic check interval - allows server to auto-suspend when idle
+  private readonly OFFLINE_THRESHOLD = 60000 // 60 seconds - longer threshold allows auto-suspend
+
+  private updateActivity(playerId: string, gameId: string) {
+    const presence = this.presence.get(playerId)
+    if (presence) {
+      presence.lastPing = Date.now()
+      presence.isOnline = true
+      this.presence.set(playerId, presence)
+      // Broadcast presence update only on activity, not on a timer
+      this.broadcastPresence(gameId)
+    }
+  }
 
   attach(server: NetServer) {
     this.io = new SocketIOServer(server, {
@@ -130,11 +140,16 @@ export class PresenceServer {
         }
       })
 
-      // Update game status
-      socket.on('update-game-status', async ({ gameId, status }, callback) => {
+      // Update game status - also updates activity
+      socket.on('update-game-status', async ({ gameId, status, playerId }, callback) => {
         try {
           console.log(`Updating game ${gameId} status to ${status}`)
           const game = await updateGameStatus(gameId, status)
+          
+          // Update activity if playerId provided
+          if (playerId) {
+            this.updateActivity(playerId, gameId)
+          }
           
           // Broadcast to all clients in game
           this.io?.to(gameId).emit('game-updated', game)
@@ -146,11 +161,14 @@ export class PresenceServer {
         }
       })
 
-      // Submit vote
+      // Submit vote - also updates activity
       socket.on('submit-vote', async ({ gameId, issueId, playerId, points }, callback) => {
         try {
           console.log(`Player ${playerId} voted ${points} on issue ${issueId}`)
           const vote = await submitVote(gameId, issueId, playerId, points)
+          
+          // Update activity
+          this.updateActivity(playerId, gameId)
           
           // Get updated votes for this issue
           const votes = await getVotesForIssue(gameId, issueId)
@@ -165,11 +183,16 @@ export class PresenceServer {
         }
       })
 
-      // Reset votes
-      socket.on('reset-votes', async ({ gameId, issueId }, callback) => {
+      // Reset votes - also updates activity
+      socket.on('reset-votes', async ({ gameId, issueId, playerId }, callback) => {
         try {
           console.log(`Resetting votes for issue ${issueId}`)
           await resetVotes(gameId, issueId)
+          
+          // Update activity if playerId provided
+          if (playerId) {
+            this.updateActivity(playerId, gameId)
+          }
           
           // Broadcast to all clients in game
           this.io?.to(gameId).emit('votes-reset', { issueId })
@@ -181,11 +204,16 @@ export class PresenceServer {
         }
       })
 
-      // Create issue
-      socket.on('create-issue', async ({ gameId, title, description, order, status }, callback) => {
+      // Create issue - also updates activity
+      socket.on('create-issue', async ({ gameId, title, description, order, status, playerId }, callback) => {
         try {
           console.log(`Creating issue: ${title} in game ${gameId}`)
           const issue = await createIssue(gameId, title, description, order, status)
+          
+          // Update activity if playerId provided
+          if (playerId) {
+            this.updateActivity(playerId, gameId)
+          }
           
           // Broadcast to all clients in game
           this.io?.to(gameId).emit('issue-created', issue)
@@ -197,11 +225,16 @@ export class PresenceServer {
         }
       })
 
-      // Update issue
-      socket.on('update-issue', async ({ issueId, updates }, callback) => {
+      // Update issue - also updates activity
+      socket.on('update-issue', async ({ issueId, updates, playerId }, callback) => {
         try {
           console.log(`Updating issue ${issueId}:`, updates)
           const issue = await updateIssue(issueId, updates)
+          
+          // Update activity if playerId provided
+          if (playerId) {
+            this.updateActivity(playerId, issue.game_id)
+          }
           
           // Broadcast to all clients in game
           this.io?.to(issue.game_id).emit('issue-updated', issue)
@@ -213,11 +246,16 @@ export class PresenceServer {
         }
       })
 
-      // Delete issue
-      socket.on('delete-issue', async ({ issueId, gameId }, callback) => {
+      // Delete issue - also updates activity
+      socket.on('delete-issue', async ({ issueId, gameId, playerId }, callback) => {
         try {
           console.log(`Deleting issue ${issueId}`)
           await deleteIssue(issueId)
+          
+          // Update activity if playerId provided
+          if (playerId) {
+            this.updateActivity(playerId, gameId)
+          }
           
           // Broadcast to all clients in game
           this.io?.to(gameId).emit('issue-deleted', { issueId })
@@ -229,11 +267,16 @@ export class PresenceServer {
         }
       })
 
-      // Set current issue
-      socket.on('set-current-issue', async ({ gameId, issueId }, callback) => {
+      // Set current issue - also updates activity
+      socket.on('set-current-issue', async ({ gameId, issueId, playerId }, callback) => {
         try {
           console.log(`Setting current issue ${issueId} for game ${gameId}`)
           const game = await setCurrentIssue(gameId, issueId)
+          
+          // Update activity if playerId provided
+          if (playerId) {
+            this.updateActivity(playerId, gameId)
+          }
           
           // Broadcast to all clients in game
           this.io?.to(gameId).emit('game-updated', game)
@@ -305,27 +348,30 @@ export class PresenceServer {
 
       // === Presence & Animations ===
 
-      // Handle ping
-      socket.on('ping', ({ gameId, playerId }) => {
-        const presence = this.presence.get(playerId)
-        if (presence) {
-          presence.lastPing = Date.now()
-          presence.isOnline = true
-          this.presence.set(playerId, presence)
-        }
+      // Handle activity (replaces ping - tracks meaningful interactions)
+      socket.on('activity', ({ gameId, playerId }) => {
+        this.updateActivity(playerId, gameId)
       })
 
-      // Handle reactions
+      // Handle reactions - also updates activity
       socket.on('reaction', ({ gameId, emoji, playerName, targetPlayerId, isImage, imageUrl }) => {
         console.log(`Reaction from ${playerName} in game ${gameId}: ${emoji} -> ${targetPlayerId || 'random'}`)
+        // Find playerId from presence map
+        for (const [pid, presence] of this.presence.entries()) {
+          if (presence.playerName === playerName && presence.gameId === gameId) {
+            this.updateActivity(pid, gameId)
+            break
+          }
+        }
         const room = this.io?.to(gameId)
         if (room) {
           room.emit('reaction', { emoji, playerName, targetPlayerId, isImage, imageUrl })
         }
       })
 
-      // Handle card placement animations
+      // Handle card placement animations - also updates activity
       socket.on('card-placed', ({ gameId, playerId, playerName, cardValue }) => {
+        this.updateActivity(playerId, gameId)
         socket.to(gameId).emit('card-placed', { playerId, playerName, cardValue })
       })
 
@@ -344,15 +390,13 @@ export class PresenceServer {
       })
     })
 
-    // Start checking for inactive players
-    this.checkInterval = setInterval(() => {
-      this.checkInactivePlayers()
-    }, this.PING_INTERVAL)
-
+    // Start checking for inactive players - REMOVED to allow auto-suspend
+    // Periodic checks prevent server from suspending; we now use activity-based updates only
     return this.io
   }
 
   private checkInactivePlayers() {
+    // Only called manually now (e.g., on disconnect), not on a timer
     const now = Date.now()
     
     for (const [playerId, presence] of this.presence.entries()) {
@@ -388,9 +432,7 @@ export class PresenceServer {
   }
 
   destroy() {
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval)
-    }
+    // No periodic intervals to clean up anymore
     if (this.io) {
       this.io.close()
     }
