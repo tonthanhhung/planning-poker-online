@@ -86,6 +86,106 @@ export function useGame(
   const [error, setError] = useState<string | null>(null)
   const [votesResetKey, setVotesResetKey] = useState(0)
   
+  // Track total revotes across all issues (incremented when votes are reset during voting)
+  const [totalRevotes, setTotalRevotes] = useState(() => {
+    if (typeof window !== 'undefined' && gameId) {
+      const stored = localStorage.getItem(`revotes_${gameId}`)
+      return stored ? parseInt(stored, 10) : 0
+    }
+    return 0
+  })
+  
+  // Persist totalRevotes to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && gameId) {
+      localStorage.setItem(`revotes_${gameId}`, totalRevotes.toString())
+    }
+  }, [totalRevotes, gameId])
+  
+  // Track all historical votes for streak calculation (persists across reveals)
+  const [allIssueStats, setAllIssueStats] = useState<IssueVoteStats[]>(() => {
+    if (typeof window !== 'undefined' && gameId) {
+      const stored = localStorage.getItem(`issueStats_${gameId}`)
+      return stored ? JSON.parse(stored) : []
+    }
+    return []
+  })
+  
+  // Persist allIssueStats to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && gameId) {
+      localStorage.setItem(`issueStats_${gameId}`, JSON.stringify(allIssueStats))
+    }
+  }, [allIssueStats, gameId])
+  
+  // Get current issue ID (the one with status 'voting')
+  const currentIssueId = useMemo(() => {
+    return issues.find(i => i.status === 'voting')?.id || null
+  }, [issues])
+  
+  // Calculate streak stats for all players
+  const streakStats = useMemo((): PlayerStreakStats[] => {
+    if (allIssueStats.length === 0 || players.length === 0) return []
+    
+    // Initialize stats for each player
+    const statsMap = new Map<string, PlayerStreakStats>()
+    players.forEach(player => {
+      statsMap.set(player.id, {
+        playerId: player.id,
+        playerName: player.name,
+        totalVotes: 0,
+        majorityAlignments: 0,
+        alignmentPercentage: 0,
+      })
+    })
+    
+    // Process each issue's stats
+    allIssueStats.forEach(issueStats => {
+      if (!issueStats.mode) return
+      
+      // Use stored playerVotes from allIssueStats (persists after revotes)
+      const playerVotes = issueStats.playerVotes || []
+      
+      playerVotes.forEach(vote => {
+        if (vote.points < 0) return // Skip coffee breaks
+        
+        const stats = statsMap.get(vote.playerId)
+        if (stats) {
+          stats.totalVotes++
+          if (vote.points === issueStats.mode) {
+            stats.majorityAlignments++
+          }
+        }
+      })
+    })
+    
+    // Calculate alignment percentages
+    return Array.from(statsMap.values()).map(stats => ({
+      ...stats,
+      alignmentPercentage: stats.totalVotes > 0
+        ? Math.round((stats.majorityAlignments / stats.totalVotes) * 100)
+        : 0,
+    }))
+  }, [allIssueStats, players])
+  
+  // Get top streak leaders (sorted by alignment percentage, then total votes)
+  const topStreakLeaders = useMemo(() => {
+    return [...streakStats]
+      .filter(s => s.totalVotes > 0)
+      .sort((a, b) => {
+        if (b.alignmentPercentage !== a.alignmentPercentage) {
+          return b.alignmentPercentage - a.alignmentPercentage
+        }
+        return b.totalVotes - a.totalVotes
+      })
+      .slice(0, 3)
+  }, [streakStats])
+  
+  // Check if we should show streak stats (after at least 2 issues have been voted on)
+  const shouldShowStreakStats = useMemo(() => {
+    return allIssueStats.filter(s => s.totalVotes > 1).length >= 2
+  }, [allIssueStats])
+  
   // Use the shared socket hook
   const { socket, isConnected, trackActivity } = useSocket(gameId, playerId, playerName)
 
@@ -315,18 +415,19 @@ export function useGame(
   // Reset votes
   const resetVotes = useCallback(
     async (issueId: string) => {
-      if (!gameId || !socket) return
+      if (!gameId || !socket || !playerId) return
 
       // Increment total revotes counter
       setTotalRevotes(prev => prev + 1)
 
-      socket.emit('reset-votes', { gameId, issueId }, (response: any) => {
+      trackActivity()
+      socket.emit('reset-votes', { gameId, issueId, playerId }, (response: any) => {
         if (!response.success) {
           console.error('Failed to reset votes:', response.error)
         }
       })
     },
-    [gameId, socket]
+    [gameId, socket, playerId, trackActivity]
   )
   
   // Track issue stats when game status changes to revealed
