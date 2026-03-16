@@ -8,11 +8,11 @@ function getPool(): Pool {
   if (!pool) {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      // Always use SSL for Supabase connections (required)
-      // Use rejectUnauthorized: false for development to handle self-signed certs
-      ssl: { 
-        rejectUnauthorized: process.env.NODE_ENV === 'production' 
-      },
+      // Enable SSL only if DATABASE_URL contains 'supabase' (production)
+      // Local PostgreSQL doesn't need SSL
+      ssl: process.env.DATABASE_URL?.includes('supabase') ? { 
+        rejectUnauthorized: false 
+      } : false,
     })
   }
   return pool
