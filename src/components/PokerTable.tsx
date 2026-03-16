@@ -711,7 +711,7 @@ export function PokerTable({
                       onClick={onNextIssue}
                       className="px-5 py-2 bg-primary hover:bg-blue-600 rounded text-white font-medium transition-colors"
                     >
-                      Next Issue
+                      Next Vote
                     </button>
                   </div>
                 )}

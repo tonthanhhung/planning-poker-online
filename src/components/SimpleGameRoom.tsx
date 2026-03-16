@@ -4,8 +4,24 @@ import { useState, useEffect, useMemo } from 'react'
 import { useGame } from '@/hooks/useGame'
 import { usePlayer } from '@/hooks/usePlayer'
 import { useWebSocketPresence } from '@/hooks/useWebSocketPresence'
-import { COFFEE_CARD, type Vote } from '@/types'
+import { COFFEE_CARD, type Vote, type Issue } from '@/types'
 import { generateFunnyName } from '@/lib/funnyNames'
+
+// Utility function to generate automatic task names
+function generateTaskName(existingIssues: Issue[]): string {
+  const now = new Date()
+  const day = String(now.getDate()).padStart(2, '0')
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const year = String(now.getFullYear()).slice(-2)
+  const dateStr = `${day}.${month}.${year}`
+  
+  // Count existing tasks for today
+  const todayPrefix = `Task-${dateStr}-`
+  const todayTasks = existingIssues.filter(issue => issue.title.startsWith(todayPrefix))
+  const nextNumber = todayTasks.length + 1
+  
+  return `Task-${dateStr}-${String(nextNumber).padStart(2, '0')}`
+}
 
 interface SimpleGameRoomProps {
   gameId: string
@@ -136,7 +152,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
 
     let issueId = currentIssue?.id
     if (!issueId) {
-      const title = 'Current Task'
+      const title = generateTaskName(issues)
       const order = issues.length
       if (socket) {
         socket.emit('create-issue', { gameId, title, order, status: 'voting' }, (response: any) => {

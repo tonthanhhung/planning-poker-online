@@ -14,6 +14,22 @@ import confetti from 'canvas-confetti'
 
 const LAST_GAME_ID_KEY = 'planning_poker_last_game_id'
 
+// Utility function to generate automatic task names
+function generateTaskName(existingIssues: Issue[]): string {
+  const now = new Date()
+  const day = String(now.getDate()).padStart(2, '0')
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const year = String(now.getFullYear()).slice(-2)
+  const dateStr = `${day}.${month}.${year}`
+  
+  // Count existing tasks for today
+  const todayPrefix = `Task-${dateStr}-`
+  const todayTasks = existingIssues.filter(issue => issue.title.startsWith(todayPrefix))
+  const nextNumber = todayTasks.length + 1
+  
+  return `Task-${dateStr}-${String(nextNumber).padStart(2, '0')}`
+}
+
 interface GameRoomProps {
   gameId: string
   onToggleMode?: () => void
@@ -103,8 +119,8 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
   // Delete confirmation state
   const [deletingIssueId, setDeletingIssueId] = useState<string | null>(null)
   
-  // Share modal state
-  const [showShareModal, setShowShareModal] = useState(false)
+  // Share modal state - now used for toast notification
+  const [showShareToast, setShowShareToast] = useState(false)
   
   // Flying card animation state
   const [flyingCard, setFlyingCard] = useState<{
@@ -342,8 +358,8 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     // Auto-create a default issue if none exists
     let issueId = currentIssue?.id
     if (!issueId) {
-      // Create default issue via Socket.IO
-      const title = 'Current Task'
+      // Create default issue via Socket.IO with auto-generated name
+      const title = generateTaskName(issues)
       const order = issues.length
       if (socket) {
         socket.emit('create-issue', { gameId, title, order, status: 'voting' }, (response: any) => {
@@ -388,22 +404,34 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
   const handleNextIssue = async () => {
     if (!currentIssue) return
 
-    // Mark current issue as completed
-    await updateIssueSocket(currentIssue.id, { status: 'completed' })
+    // Calculate consensus and save it to the current issue
+    const consensus = calculateConsensus()
+    const estimatedPoints = consensus?.mode ?? undefined
 
-    // Find next issue by index (regardless of status) to allow navigation through all issues
-    const currentIndex = issues.findIndex(i => i.id === currentIssue.id)
-    const nextIndex = (currentIndex + 1) % issues.length
-    const nextIssue = issues[nextIndex]
+    // Mark current issue as completed with estimated points
+    await updateIssueSocket(currentIssue.id, { 
+      status: 'completed',
+      estimated_points: estimatedPoints 
+    })
 
-    if (nextIssue) {
-      // Set the next issue to voting status so it becomes the active issue
-      await updateIssueSocket(nextIssue.id, { status: 'voting' })
-      await setStatus('voting')
-      // Set local viewing to the next issue
-      setViewingIssueId(nextIssue.id)
-    } else {
-      await setStatus('lobby')
+    // Create a new task with auto-generated name
+    const newTaskName = generateTaskName(issues)
+    const order = issues.length
+    
+    // Create the new issue via Socket.IO
+    if (socket) {
+      socket.emit('create-issue', { 
+        gameId, 
+        title: newTaskName, 
+        order, 
+        status: 'voting' 
+      }, (response: any) => {
+        if (response.success) {
+          // Set the new issue as current
+          setViewingIssueId(response.issue.id)
+          setStatus('voting')
+        }
+      })
     }
 
     setSelectedCard(null)
@@ -696,90 +724,6 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header - Single row with game name and 6 buttons */}
-      <header className="bg-surface border-b border-border elevation-low sticky top-0 z-50">
-        <div className="px-3 py-2 md:px-4 md:py-3">
-          {/* Single row: Game title and all actions */}
-          <div className="flex items-center justify-between gap-2">
-            {/* Left: Game name */}
-            <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
-              <h1 className="text-sm md:text-lg font-semibold text-secondary truncate">{game?.name}</h1>
-            </div>
-            
-            {/* Right: All 6 buttons - consistent sizing */}
-            <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
-              {/* 1. Simple Mode Toggle */}
-              {onToggleMode && (
-                <button
-                  onClick={onToggleMode}
-                  className="px-2 py-1.5 text-xs bg-neutral-light hover:bg-neutral-200 text-secondary rounded transition-colors whitespace-nowrap flex items-center justify-center gap-1 h-8 w-[72px] md:w-auto"
-                >
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-                  </svg>
-                  <span className="hidden md:inline">Simple</span>
-                </button>
-              )}
-              
-              {/* 2. Share button */}
-              <button
-                onClick={() => setShowShareModal(true)}
-                className="px-2 py-1.5 bg-neutral-light hover:bg-neutral-200 rounded transition-colors flex items-center justify-center gap-1 h-8 w-[72px] md:w-auto text-xs"
-                title="Share game"
-              >
-                <svg className="w-3.5 h-3.5 text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
-                <span className="hidden md:inline">Share</span>
-              </button>
-              
-              {/* 3. Issues button (mobile only) */}
-              <button
-                onClick={() => setShowSidebar(true)}
-                className="md:hidden px-2 py-1.5 bg-neutral-light hover:bg-neutral-200 rounded transition-colors h-8 w-[72px] flex items-center justify-center"
-                title="Show Issues"
-              >
-                <svg className="w-3.5 h-3.5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-              
-              {/* 4. Player count badge */}
-              <div className="px-2 py-1.5 bg-neutral-light rounded text-xs font-medium text-secondary h-8 flex items-center justify-center min-w-[72px]">
-                <span>{players.length}</span>
-                <span className="hidden md:inline ml-1">players</span>
-              </div>
-              
-              {/* 5. Current player name */}
-              <button
-                onClick={openNameEditor}
-                className="px-2 py-1.5 bg-neutral-light hover:bg-neutral-200 rounded transition-colors text-xs font-medium text-secondary h-8 truncate max-w-[80px] md:max-w-[100px] flex items-center justify-center"
-                title="Click to edit your name"
-              >
-                {playerName}
-              </button>
-              
-              {/* 6. Leave Game button */}
-              <button
-                onClick={() => {
-                  if (confirm('Leave this game? You can always rejoin later.')) {
-                    localStorage.removeItem('planning_poker_last_game_id')
-                    window.location.href = '/'
-                  }
-                }}
-                className="px-2 py-1.5 bg-neutral-light hover:bg-red-50 text-secondary hover:text-error rounded transition-colors text-xs font-medium h-8 flex items-center justify-center gap-1 w-[72px] md:w-auto"
-                title="Leave game"
-              >
-                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span className="hidden md:inline">Leave</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Name Editor Modal */}
       <AnimatePresence>
         {showNameEditor && (
@@ -832,77 +776,21 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
         )}
       </AnimatePresence>
 
-      {/* Share Modal - Shows game ID for sharing */}
+      {/* Share Toast Notification */}
       <AnimatePresence>
-        {showShareModal && (
+        {showShareToast && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-neutral-dark/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowShareModal(false)}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50"
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-surface rounded-lg border border-border elevation-high p-6 max-w-md w-full"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="font-display text-xl font-bold text-secondary mb-2">Share Game</h3>
-              <p className="text-neutral text-sm mb-4">Invite others to join this game by sharing the link or game ID.</p>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-neutral mb-1">Game Link</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={`${typeof window !== 'undefined' ? window.location.origin : ''}/game/${gameId}`}
-                      className="flex-1 px-3 py-2 rounded border border-border text-secondary text-sm bg-neutral-light"
-                    />
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/game/${gameId}`); alert('Link copied!'); }}
-                      className="px-3 py-2 bg-primary hover:bg-blue-600 rounded text-white text-sm font-medium transition-colors"
-                      title="Copy link"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-neutral mb-1">Game ID</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={gameId}
-                      className="flex-1 px-3 py-2 rounded border border-border text-secondary text-sm bg-neutral-light font-mono"
-                    />
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(gameId); alert('Game ID copied!'); }}
-                      className="px-3 py-2 bg-primary hover:bg-blue-600 rounded text-white text-sm font-medium transition-colors"
-                      title="Copy Game ID"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <button
-                onClick={() => setShowShareModal(false)}
-                className="w-full mt-6 py-2 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-medium transition-colors"
-              >
-                Close
-              </button>
-            </motion.div>
+            <div className="bg-secondary text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-sm font-medium">Game link copied to clipboard</span>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -930,7 +818,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
               <div className="h-full flex flex-col">
                 {/* Drawer Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface">
-                  <h3 className="text-lg font-semibold text-secondary">Issues</h3>
+                  <h3 className="text-lg font-semibold text-secondary">Voted Tasks</h3>
                   <button
                     onClick={() => setShowSidebar(false)}
                     className="p-2 hover:bg-neutral-light rounded transition-colors"
@@ -943,37 +831,6 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                 
                 {/* Drawer Content */}
                 <div className="flex-1 overflow-y-auto p-4">
-                  {/* Add Issue Button */}
-                  <button
-                    onClick={() => setShowIssueInput(!showIssueInput)}
-                    className="w-full mb-4 py-2.5 bg-primary hover:bg-blue-600 rounded text-white text-sm font-medium transition-colors inline-flex items-center justify-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Issue
-                  </button>
-
-                  {/* Add Issue Input */}
-                  {showIssueInput && (
-                    <div className="mb-4 space-y-2">
-                      <input
-                        type="text"
-                        placeholder="Issue title"
-                        value={newIssueTitle}
-                        onChange={(e) => setNewIssueTitle(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAddIssue()}
-                        className="w-full px-3 py-2 rounded border border-border text-secondary placeholder-neutral focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                        autoFocus
-                      />
-                      <button
-                        onClick={handleAddIssue}
-                        className="w-full py-2 bg-primary hover:bg-blue-600 rounded text-white text-sm font-medium transition-colors"
-                      >
-                        Add Issue
-                      </button>
-                    </div>
-                  )}
 
                   {/* Issues List */}
                   <div className="space-y-2">
@@ -1067,19 +924,6 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                       <p className="text-neutral text-xs">Add your first task and start planning poker</p>
                     </motion.div>
                   )}
-
-                  {/* Clear Completed Tasks Button */}
-                  {issues.length > 0 && (
-                    <button
-                      onClick={handleClearVotedTasks}
-                      className="w-full mt-4 py-2 px-3 bg-red-50 hover:bg-red-100 text-error rounded text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                      Clear Completed Tasks
-                    </button>
-                  )}
                 </div>
               </div>
             </motion.div>
@@ -1088,6 +932,92 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
       </AnimatePresence>
 
       <div className="px-4 py-6">
+        {/* Header inside main container */}
+        <div className="max-w-7xl mx-auto mb-6">
+          <div className="flex items-center justify-between gap-2 bg-surface rounded-lg border border-border elevation-low px-3 py-2 md:px-4 md:py-3">
+            {/* Left: Game name */}
+            <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
+              <h1 className="text-sm md:text-lg font-semibold text-secondary truncate">{game?.name}</h1>
+            </div>
+            
+            {/* Right: All action buttons */}
+            <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+              {/* 1. Simple Mode Toggle */}
+              {onToggleMode && (
+                <button
+                  onClick={onToggleMode}
+                  className="px-2 py-1.5 text-xs bg-neutral-light hover:bg-neutral-200 text-secondary rounded transition-colors whitespace-nowrap flex items-center justify-center gap-1 h-8"
+                >
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                  </svg>
+                  <span className="hidden md:inline">Simple</span>
+                </button>
+              )}
+              
+              {/* 2. Share button */}
+              <button
+                onClick={() => {
+                  const gameLink = `${window.location.origin}/game/${gameId}`
+                  navigator.clipboard.writeText(gameLink)
+                  setShowShareToast(true)
+                  setTimeout(() => setShowShareToast(false), 2000)
+                }}
+                className="px-2 py-1.5 bg-neutral-light hover:bg-neutral-200 rounded transition-colors flex items-center justify-center gap-1 h-8 text-xs"
+                title="Share game"
+              >
+                <svg className="w-3.5 h-3.5 text-secondary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+                <span className="hidden md:inline">Share</span>
+              </button>
+              
+              {/* 3. Issues button (mobile only) */}
+              <button
+                onClick={() => setShowSidebar(true)}
+                className="md:hidden px-2 py-1.5 bg-neutral-light hover:bg-neutral-200 rounded transition-colors h-8 flex items-center justify-center"
+                title="Show Voted Tasks"
+              >
+                <svg className="w-3.5 h-3.5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              
+              {/* 4. Player count badge */}
+              <div className="px-2 py-1.5 bg-neutral-light rounded text-xs font-medium text-secondary h-8 flex items-center justify-center">
+                <span>{players.length}</span>
+                <span className="hidden md:inline ml-1">players</span>
+              </div>
+              
+              {/* 5. Current player name */}
+              <button
+                onClick={openNameEditor}
+                className="px-2 py-1.5 bg-neutral-light hover:bg-neutral-200 rounded transition-colors text-xs font-medium text-secondary h-8 truncate max-w-[80px] md:max-w-[100px] flex items-center justify-center"
+                title="Click to edit your name"
+              >
+                {playerName}
+              </button>
+              
+              {/* 6. Leave Game button */}
+              <button
+                onClick={() => {
+                  if (confirm('Leave this game? You can always rejoin later.')) {
+                    localStorage.removeItem('planning_poker_last_game_id')
+                    window.location.href = '/'
+                  }
+                }}
+                className="px-2 py-1.5 bg-neutral-light hover:bg-red-50 text-secondary hover:text-error rounded transition-colors text-xs font-medium h-8 flex items-center justify-center gap-1"
+                title="Leave game"
+              >
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" stroke-linejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="hidden md:inline">Leave</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="grid md:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {/* Main Game Area - Full width on mobile, 3/4 on md */}
           <div className="md:col-span-3">
@@ -1332,45 +1262,14 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
           </div>
           </div>
 
-          {/* Sidebar - Issues List - Toggleable on mobile, always visible on md */}
+          {/* Sidebar - Voted Tasks - Toggleable on mobile, always visible on md */}
           <div className={`md:col-span-1 ${showSidebar ? 'block' : 'hidden'} md:block`}>
             <div className="bg-surface rounded-lg border border-border elevation-medium p-4 max-h-[calc(100vh-120px)] md:max-h-96 overflow-y-auto">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-semibold text-secondary">Issues</h3>
-                <button
-                  onClick={() => setShowIssueInput(!showIssueInput)}
-                  className="px-2.5 py-1.5 bg-primary hover:bg-blue-600 rounded text-white text-sm font-medium transition-colors inline-flex items-center gap-1"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span className="hidden sm:inline">Add</span>
-                  <span className="sm:hidden">+</span>
-                </button>
+                <h3 className="text-base font-semibold text-secondary">Voted Tasks</h3>
               </div>
 
-              {/* Add Issue Input */}
-              {showIssueInput && (
-                <div className="mb-3 space-y-2">
-                  <input
-                    type="text"
-                    placeholder="Issue title"
-                    value={newIssueTitle}
-                    onChange={(e) => setNewIssueTitle(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddIssue()}
-                    className="w-full px-3 py-2 rounded border border-border text-secondary placeholder-neutral focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                    autoFocus
-                  />
-                  <button
-                    onClick={handleAddIssue}
-                    className="w-full py-2 bg-primary hover:bg-blue-600 rounded text-white text-sm font-medium transition-colors"
-                  >
-                    Add Issue
-                  </button>
-                </div>
-              )}
-
-              {/* Issues List */}
+              {/* Voted Tasks List */}
               <div className="space-y-1.5 max-h-96 overflow-y-auto">
                 {issues.map((issue, index) => {
                   const issueVotes = votes[issue.id] || []
@@ -1443,22 +1342,9 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                   </div>
-                  <p className="text-neutral text-sm">No tasks yet</p>
-                  <p className="text-neutral text-xs mt-1">Add your first task to start estimating</p>
+                  <p className="text-neutral text-sm">No voted tasks yet</p>
+                  <p className="text-neutral text-xs mt-1">Completed votes will appear here</p>
                 </div>
-              )}
-
-              {/* Clear Completed Tasks Button */}
-              {issues.length > 0 && (
-                <button
-                  onClick={handleClearVotedTasks}
-                  className="w-full mt-3 py-2 px-3 bg-red-50 hover:bg-red-100 text-error rounded text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Clear Completed Tasks
-                </button>
               )}
             </div>
           </div>
