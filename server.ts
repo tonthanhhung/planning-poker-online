@@ -1,7 +1,15 @@
+// Load environment variables BEFORE any other imports
+import dotenv from 'dotenv'
+import { resolve } from 'path'
+dotenv.config({ path: resolve(process.cwd(), '.env.local') })
+
 import { createServer } from 'http'
 import { parse } from 'url'
 import next from 'next'
 import { getPresenceServer } from './src/lib/presence-server'
+
+// Debug: Check if DATABASE_URL is loaded
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Loaded' : 'Not loaded')
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = dev ? 'localhost' : '0.0.0.0'
