@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#6D28D9" />
+    </linearGradient>
+    <linearGradient id="pinkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EC4899" />
+      <stop offset="100%" stop-color="#BE185D" />
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="1.5" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(32, 54) scale(1.7)">
+  
+    <!-- Left Card (Pink - 3) -->
+    <g transform="rotate(-26)" filter="url(#shadow)">
+      <rect x="-8" y="-22" width="16" height="22" rx="2" fill="url(#pinkGrad)"/>
+      <rect x="-6.5" y="-20.5" width="13" height="19" rx="1.5" fill="#ffffff" opacity="0.95"/>
+      <text x="-4.5" y="-15.5" font-family="'Outfit', 'Inter', system-ui, sans-serif" font-size="5" font-weight="800" fill="url(#pinkGrad)">3</text>
+      <text x="0" y="-8.5" font-family="'Outfit', 'Inter', system-ui, sans-serif" font-size="9" font-weight="900" fill="url(#pinkGrad)" text-anchor="middle">3</text>
+    </g>
+
+    <!-- Right Card (Blue - 8) -->
+    <g transform="rotate(26)" filter="url(#shadow)">
+      <rect x="-8" y="-22" width="16" height="22" rx="2" fill="url(#blueGrad)"/>
+      <rect x="-6.5" y="-20.5" width="13" height="19" rx="1.5" fill="#ffffff" opacity="0.95"/>
+      <text x="-4.5" y="-15.5" font-family="'Outfit', 'Inter', system-ui, sans-serif" font-size="5" font-weight="800" fill="url(#blueGrad)">8</text>
+      <text x="0" y="-8.5" font-family="'Outfit', 'Inter', system-ui, sans-serif" font-size="9" font-weight="900" fill="url(#blueGrad)" text-anchor="middle">8</text>
+    </g>
+
+    <!-- Middle Card (Purple - 5) -->
+    <g transform="rotate(0) translate(0, -3.5)" filter="url(#shadow)">
+      <rect x="-8" y="-22" width="16" height="22" rx="2" fill="url(#purpleGrad)"/>
+      <rect x="-6.5" y="-20.5" width="13" height="19" rx="1.5" fill="#ffffff" opacity="0.95"/>
+      <text x="-4.5" y="-15.5" font-family="'Outfit', 'Inter', system-ui, sans-serif" font-size="5" font-weight="800" fill="url(#purpleGrad)">5</text>
+      <text x="0" y="-8.5" font-family="'Outfit', 'Inter', system-ui, sans-serif" font-size="9" font-weight="900" fill="url(#purpleGrad)" text-anchor="middle">5</text>
+    </g>
+    
+  </g>
+</svg>

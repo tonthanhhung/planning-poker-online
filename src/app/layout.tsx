@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "Planning Poker Online - Scrum Poker for Agile Teams",
   description: "Easy-to-use and fun estimations for agile teams. Vote and estimate issues in real-time with beautiful card animations.",
   keywords: ["planning poker", "scrum poker", "agile", "estimation", "story points"],
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
