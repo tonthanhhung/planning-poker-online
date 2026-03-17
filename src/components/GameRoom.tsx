@@ -122,6 +122,9 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
   // Share modal state - now used for toast notification
   const [showShareToast, setShowShareToast] = useState(false)
   
+  // Track if user just clicked Reveal (for confetti trigger)
+  const [justRevealed, setJustRevealed] = useState(false)
+  
   // Flying card animation state
   const [flyingCard, setFlyingCard] = useState<{
     value: number | typeof COFFEE_CARD
@@ -386,6 +389,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
 
   const handleReveal = async () => {
     if (!game) return
+    setJustRevealed(true)
     await setStatus('revealed')
   }
 
@@ -414,24 +418,34 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
       estimated_points: estimatedPoints 
     })
 
-    // Create a new task with auto-generated name
-    const newTaskName = generateTaskName(issues)
-    const order = issues.length
+    // First, look for any existing issues with status 'pending'
+    const pendingIssue = issues.find(i => i.status === 'pending' && i.id !== currentIssue.id)
     
-    // Create the new issue via Socket.IO
-    if (socket) {
-      socket.emit('create-issue', { 
-        gameId, 
-        title: newTaskName, 
-        order, 
-        status: 'voting' 
-      }, (response: any) => {
-        if (response.success) {
-          // Set the new issue as current
-          setViewingIssueId(response.issue.id)
-          setStatus('voting')
-        }
-      })
+    if (pendingIssue) {
+      // Set the pending issue to 'voting' instead of creating a new one
+      await updateIssueSocket(pendingIssue.id, { status: 'voting' })
+      setViewingIssueId(pendingIssue.id)
+      setStatus('voting')
+    } else {
+      // No pending issues exist, create a new auto-named task
+      const newTaskName = generateTaskName(issues)
+      const order = issues.length
+      
+      // Create the new issue via Socket.IO
+      if (socket) {
+        socket.emit('create-issue', { 
+          gameId, 
+          title: newTaskName, 
+          order, 
+          status: 'voting' 
+        }, (response: any) => {
+          if (response.success) {
+            // Set the new issue as current
+            setViewingIssueId(response.issue.id)
+            setStatus('voting')
+          }
+        })
+      }
     }
 
     setSelectedCard(null)
@@ -581,10 +595,11 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
 
   const consensus = calculateConsensus()
 
-  // Celebrate consensus with confetti when votes are revealed
+  // Celebrate consensus with confetti when user clicks Reveal
   const hasCelebratedRef = useRef<string | null>(null)
   useEffect(() => {
-    if (consensus?.consensus && isViewingRevealed && currentVotes.length > 0) {
+    // Only fire confetti when user just clicked Reveal, there's consensus, and more than 1 voter
+    if (justRevealed && consensus?.consensus && isViewingRevealed && currentVotes.length > 1) {
       const celebrationKey = `${currentIssue?.id}-${consensus.mode}-${currentVotes.length}`
       if (hasCelebratedRef.current !== celebrationKey) {
         hasCelebratedRef.current = celebrationKey
@@ -617,11 +632,17 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
             colors: ['#32CD32', '#00BFFF', '#9370DB'],
           })
         }, 300)
+        
+        // Reset justRevealed after confetti fires
+        setTimeout(() => {
+          setJustRevealed(false)
+        }, 500)
       }
     } else if (!isViewingRevealed) {
       hasCelebratedRef.current = null
+      setJustRevealed(false)
     }
-  }, [consensus?.consensus, consensus?.mode, isViewingRevealed, currentVotes.length, currentIssue?.id])
+  }, [justRevealed, consensus?.consensus, consensus?.mode, isViewingRevealed, currentVotes.length, currentIssue?.id])
 
   if (isLoading) {
     return (

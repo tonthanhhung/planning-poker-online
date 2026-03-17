@@ -458,7 +458,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
               <span className="absolute top-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
               <span className="absolute bottom-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
               <span className="absolute bottom-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-              <span className="text-lg sm:text-xl font-bold text-[#5B6A79]">☕</span>
+              <span className="text-xl sm:text-2xl font-bold text-[#5B6A79]">☕</span>
             </button>
 
             {/* Number cards */}
@@ -478,7 +478,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
                 <span className="absolute top-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
                 <span className="absolute bottom-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
                 <span className="absolute bottom-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-                <span className="text-lg sm:text-xl font-bold text-[#5B6A79]">{value}</span>
+                <span className="text-xl sm:text-2xl font-bold text-[#5B6A79]">{value}</span>
               </button>
             ))}
           </div>
@@ -538,7 +538,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
                     </button>
                     <button
                       onClick={handleNextIssue}
-                      className="px-4 py-2 bg-primary hover:bg-primary-hover rounded text-white text-sm font-medium transition-colors"
+                      className="px-4 py-2 bg-secondary hover:bg-neutral-dark rounded text-white text-sm font-medium transition-colors"
                     >
                       Next Task
                     </button>
@@ -561,7 +561,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
               <div className="min-w-[300px] divide-y divide-border">
                 {/* Table Header */}
                 <div className="px-4 py-3 flex items-center bg-neutral-subtle">
-                  <span className="text-secondary font-medium min-w-0 truncate pr-1">Name</span>
+                  <span className="text-secondary font-medium flex-1 min-w-0 truncate pr-1">Name</span>
                   <span className="w-20 sm:w-24 text-center text-secondary font-medium flex-shrink-0">Story Points</span>
                 </div>
 
@@ -574,15 +574,15 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
                   
                   return (
                     <div key={player.id} className="px-4 py-3 flex items-center hover:bg-neutral-light">
-                      <span className="text-secondary min-w-0 truncate pr-1">{player.name}</span>
+                      <span className="text-secondary flex-1 min-w-0 truncate pr-1">{player.name}</span>
                       <div className="w-20 sm:w-24 flex justify-center flex-shrink-0">
                         {shouldShowFace ? (
                           <div 
                             className="relative w-10 h-14 sm:w-12 sm:h-16"
                             style={{ perspective: '1000px' }}
                           >
-                            <div 
-                              className="relative w-full h-full transition-transform duration-600 transform-style-3d"
+                              <div 
+                                className="relative w-full h-full transition-transform duration-1000 transform-style-3d"
                               style={{ 
                                 transformStyle: 'preserve-3d',
                                 transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
@@ -609,7 +609,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
                                 <span className="absolute top-0.5 right-0.5 text-[6px] sm:text-[8px] text-[#5B6A79]">✦</span>
                                 <span className="absolute bottom-0.5 left-0.5 text-[6px] sm:text-[8px] text-[#5B6A79]">✦</span>
                                 <span className="absolute bottom-0.5 right-0.5 text-[6px] sm:text-[8px] text-[#5B6A79]">✦</span>
-                                <span className="text-base sm:text-lg font-bold text-[#5B6A79]">{playerVote}</span>
+                                <span className="text-xl sm:text-2xl font-bold text-[#5B6A79]">{playerVote}</span>
                               </div>
                             </div>
                           </div>
