@@ -52,6 +52,9 @@ export const CARD_VALUES = [0, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100];
 // Coffee break card
 export const COFFEE_CARD = '☕';
 
+// Question mark card
+export const QUESTION_CARD = '?';
+
 // Game status types
 export type GameStatus = 'lobby' | 'voting' | 'revealed';
 

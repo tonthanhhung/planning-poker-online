@@ -8,7 +8,7 @@ import { usePlayer } from '@/hooks/usePlayer'
 import { useWebSocketPresence } from '@/hooks/useWebSocketPresence'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { COFFEE_CARD, type Vote, type PlayerStreakStats, type Issue } from '@/types'
+import { QUESTION_CARD, COFFEE_CARD, type Vote, type PlayerStreakStats, type Issue } from '@/types'
 import { generateFunnyName } from '@/lib/funnyNames'
 import confetti from 'canvas-confetti'
 
@@ -99,7 +99,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     console.log('Presence map:', Array.from(presence.entries()))
   }, [presence])
   
-  const [selectedCard, setSelectedCard] = useState<number | typeof COFFEE_CARD | null>(null)
+  const [selectedCard, setSelectedCard] = useState<number | typeof COFFEE_CARD | typeof QUESTION_CARD | null>(null)
   const [hasVoted, setHasVoted] = useState(false)
   const [newIssueTitle, setNewIssueTitle] = useState('')
   const [showIssueInput, setShowIssueInput] = useState(false)
@@ -127,19 +127,29 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
   
   // Flying card animation state
   const [flyingCard, setFlyingCard] = useState<{
-    value: number | typeof COFFEE_CARD
+    value: number | typeof COFFEE_CARD | typeof QUESTION_CARD
     startX: number
     startY: number
     endX: number
     endY: number
   } | null>(null)
   const [pendingVote, setPendingVote] = useState<{
-    value: number | typeof COFFEE_CARD
+    value: number | typeof COFFEE_CARD | typeof QUESTION_CARD
     playerId: string
     issueId: string
     timestamp: number
   } | null>(null)
   const [wasRemoved, setWasRemoved] = useState(false)
+  
+  // Ref for voted tasks list to auto-scroll to bottom
+  const votedTasksListRef = useRef<HTMLDivElement>(null)
+  
+  // Auto-scroll to bottom when new issues are added
+  useEffect(() => {
+    if (votedTasksListRef.current) {
+      votedTasksListRef.current.scrollTop = votedTasksListRef.current.scrollHeight
+    }
+  }, [issues.length])
   
   // Local state for which issue the user is viewing (not synced via WebSocket)
   // Each user can independently navigate and view different issues
@@ -148,6 +158,17 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
   // Get the "active" issue from server (the one with status 'voting')
   // This is used for game workflow, not for viewing
   const serverActiveIssue = issues.find(i => i.status === 'voting')
+  
+  // Auto-clear viewingIssueId when server active issue changes
+  // This ensures everyone follows the facilitator to the new voting issue
+  const prevServerActiveIssueIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (serverActiveIssue?.id !== prevServerActiveIssueIdRef.current) {
+      // Server active issue has changed, clear local viewing to follow the new active issue
+      setViewingIssueId(null)
+      prevServerActiveIssueIdRef.current = serverActiveIssue?.id || null
+    }
+  }, [serverActiveIssue?.id])
   
   // Current issue being viewed - uses local state if set, otherwise falls back to server active issue
   const currentIssue = useMemo(() => {
@@ -289,7 +310,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     }
   }
 
-  const handleCardClick = async (value: number | typeof COFFEE_CARD, cardRect: DOMRect) => {
+  const handleCardClick = async (value: number | typeof COFFEE_CARD | typeof QUESTION_CARD, cardRect: DOMRect) => {
     if (!playerId) {
       alert('You need to join the game first.')
       return
@@ -369,7 +390,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
           if (response.success) {
             issueId = response.issue.id
             // Submit vote after issue is created
-            submitVoteSocket(issueId, typeof flyingCard.value === 'number' ? flyingCard.value : -1)
+            submitVoteSocket(issueId, typeof flyingCard.value === 'number' ? flyingCard.value : flyingCard.value === COFFEE_CARD ? -1 : -2)
             setHasVoted(true)
           } else {
             alert('Failed to create voting session')
@@ -379,7 +400,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
       }
     } else {
       // Submit vote via Socket.IO
-      await submitVoteSocket(issueId, typeof flyingCard.value === 'number' ? flyingCard.value : -1)
+      await submitVoteSocket(issueId, typeof flyingCard.value === 'number' ? flyingCard.value : flyingCard.value === COFFEE_CARD ? -1 : -2)
       setHasVoted(true)
     }
 
@@ -424,8 +445,10 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     if (pendingIssue) {
       // Set the pending issue to 'voting' instead of creating a new one
       await updateIssueSocket(pendingIssue.id, { status: 'voting' })
-      setViewingIssueId(pendingIssue.id)
+      setViewingIssueId(null) // Clear local viewing to follow server active issue
       setStatus('voting')
+      // Reset votes to clear everyone's voting state
+      resetVotesSocket(pendingIssue.id)
     } else {
       // No pending issues exist, create a new auto-named task
       const newTaskName = generateTaskName(issues)
@@ -441,8 +464,10 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
         }, (response: any) => {
           if (response.success) {
             // Set the new issue as current
-            setViewingIssueId(response.issue.id)
+            setViewingIssueId(null) // Clear local viewing to follow server active issue
             setStatus('voting')
+            // Reset votes for the new issue
+            resetVotesSocket(response.issue.id)
           }
         })
       }
@@ -851,7 +876,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                 </div>
                 
                 {/* Drawer Content */}
-                <div className="flex-1 overflow-y-auto p-4">
+                <div ref={votedTasksListRef} className="flex-1 overflow-y-auto p-4">
 
                   {/* Issues List */}
                   <div className="space-y-2">
@@ -867,15 +892,19 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                           initial={{ opacity: 0, x: -10 }}
                           animate={isDeleting ? { opacity: 0, x: 100 } : { opacity: 1, x: 0 }}
                           onClick={() => {
+                            // Only allow clicking on unvoted tasks
+                            if (isVoted) return
                             setViewingIssueId(issue.id)
                             setSelectedCard(null)
                             setHasVoted(false)
                             setShowSidebar(false)
                           }}
-                          className={`p-3 rounded cursor-pointer transition-colors border ${
+                          className={`p-3 rounded transition-colors border ${
                             isViewing
                               ? 'bg-blue-light border-primary/30'
-                              : 'bg-surface border-transparent hover:bg-neutral-light'
+                              : isVoted
+                              ? 'bg-surface border-transparent opacity-75 cursor-default'
+                              : 'bg-surface border-transparent hover:bg-neutral-light cursor-pointer'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2">
@@ -1285,13 +1314,13 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
 
           {/* Sidebar - Voted Tasks - Toggleable on mobile, always visible on md */}
           <div className={`md:col-span-1 ${showSidebar ? 'block' : 'hidden'} md:block`}>
-            <div className="bg-surface rounded-lg border border-border elevation-medium p-4 max-h-[calc(100vh-120px)] md:max-h-96 overflow-y-auto">
+            <div className="bg-surface rounded-lg border border-border elevation-medium p-4 max-h-[calc(100vh-120px)] md:max-h-full overflow-y-hidden">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-secondary">Voted Tasks</h3>
               </div>
 
               {/* Voted Tasks List */}
-              <div className="space-y-1.5 max-h-96 overflow-y-auto">
+              <div ref={votedTasksListRef} className="space-y-1.5 max-h-96 overflow-y-auto">
                 {issues.map((issue, index) => {
                   const issueVotes = votes[issue.id] || []
                   const isVoted = getIssueDisplayStatus(issue, issueVotes) === 'voted'
@@ -1305,16 +1334,21 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                       animate={isDeleting ? { opacity: 0, x: 100 } : { opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.03 }}
                       onClick={() => {
+                        // Only allow clicking on unvoted tasks
+                        // Voted tasks should not be clickable
+                        if (isVoted) return
                         // Switch viewing locally - no WebSocket broadcast
                         // Each user can independently view any issue
                         setViewingIssueId(issue.id)
                         setSelectedCard(null)
                         setHasVoted(false)
                       }}
-                      className={`p-2.5 rounded cursor-pointer transition-colors border group ${
+                      className={`p-2.5 rounded transition-colors border group ${
                         isViewing
                           ? 'bg-blue-light border-primary/30'
-                          : 'bg-surface border-transparent hover:bg-neutral-light'
+                          : isVoted
+                          ? 'bg-surface border-transparent opacity-75 cursor-default'
+                          : 'bg-surface border-transparent hover:bg-neutral-light cursor-pointer'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">

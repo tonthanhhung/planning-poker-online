@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import { FlyingReactions, ReactionPicker, type FlyingEmoji } from './Reactions'
 import type { Player } from '@/types'
+import { QUESTION_CARD, COFFEE_CARD } from '@/types'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Socket } from 'socket.io-client'
 import {
@@ -450,6 +451,13 @@ export function PokerTable({
       }
 
       if (isRevealed && playerVote) {
+        // Map vote points to display value
+        const getDisplayValue = (points: number) => {
+          if (points === -1) return COFFEE_CARD
+          if (points === -2) return QUESTION_CARD
+          return points
+        }
+        
         return (
           <motion.div
             data-player-card={player.id}
@@ -479,7 +487,7 @@ export function PokerTable({
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2, type: 'spring', stiffness: 400 }}
             >
-              {playerVote.points < 0 ? '☕' : playerVote.points}
+              {getDisplayValue(playerVote.points)}
             </motion.span>
             {/* Subtle glow effect for revealed cards */}
             <motion.div
@@ -491,6 +499,18 @@ export function PokerTable({
               }}
               transition={{ duration: 1.5, delay: 0.3 }}
             />
+          </motion.div>
+        )
+      }
+
+      // If revealed but no vote recorded, show placeholder
+      if (isRevealed && !playerVote) {
+        return (
+          <motion.div
+            data-player-card={player.id}
+            className="w-[46px] h-[64px] rounded-lg bg-neutral-light border-2 border-border shadow-sm flex items-center justify-center relative"
+          >
+            <span className="text-neutral text-xs">-</span>
           </motion.div>
         )
       }

@@ -1,14 +1,14 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { CARD_VALUES, COFFEE_CARD } from '@/types'
+import { CARD_VALUES, COFFEE_CARD, QUESTION_CARD } from '@/types'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
 export type CardAnimationState = 'idle' | 'lifting' | 'flying' | 'landing' | 'placed'
 
 interface PokerCardProps {
-  value: number | typeof COFFEE_CARD
+  value: number | typeof COFFEE_CARD | typeof QUESTION_CARD
   isSelected?: boolean
   isRevealed?: boolean
   isHidden?: boolean
@@ -19,7 +19,7 @@ interface PokerCardProps {
 }
 
 // Color palette for different card values to add visual variety
-const getCardColor = (value: number | typeof COFFEE_CARD, isSelected: boolean) => {
+const getCardColor = (value: number | typeof COFFEE_CARD | typeof QUESTION_CARD, isSelected: boolean) => {
   if (isSelected) {
     return {
       bg: 'bg-gradient-to-br from-primary to-blue-600',
@@ -34,6 +34,15 @@ const getCardColor = (value: number | typeof COFFEE_CARD, isSelected: boolean) =
       bg: 'bg-gradient-to-br from-amber-100 to-amber-50',
       border: 'border-amber-300',
       text: 'text-amber-700',
+      shadow: 'shadow-sm',
+    }
+  }
+  
+  if (value === QUESTION_CARD) {
+    return {
+      bg: 'bg-gradient-to-br from-slate-100 to-slate-50',
+      border: 'border-slate-300',
+      text: 'text-slate-700',
       shadow: 'shadow-sm',
     }
   }
@@ -88,7 +97,7 @@ export function PokerCard({
     lg: 'w-14 h-20 text-2xl sm:w-20 sm:h-28 sm:text-4xl',
   }
 
-  const displayValue = value === COFFEE_CARD ? COFFEE_CARD : value
+  const displayValue = value === COFFEE_CARD ? COFFEE_CARD : value === QUESTION_CARD ? QUESTION_CARD : value
   const colors = getCardColor(value, isSelected)
 
   if (isHidden && !isRevealed) {
@@ -190,14 +199,14 @@ export function PokerCard({
 
 // Flying card animation component for the dramatic placement
 interface FlyingCardProps {
-  value: number | typeof COFFEE_CARD
+  value: number | typeof COFFEE_CARD | typeof QUESTION_CARD
   startRect: { left: number; top: number; width: number; height: number }
   endRect: { left: number; top: number; width: number; height: number }
   onComplete?: () => void
 }
 
 export function FlyingCard({ value, startRect, endRect, onComplete }: FlyingCardProps) {
-  const displayValue = value === COFFEE_CARD ? COFFEE_CARD : value
+  const displayValue = value === COFFEE_CARD ? COFFEE_CARD : value === QUESTION_CARD ? QUESTION_CARD : value
   const [mounted, setMounted] = useState(false)
   
   useEffect(() => {
@@ -273,14 +282,14 @@ export function PokerCardDeck({
   disabled = false,
   animatingCard = null,
 }: {
-  selectedValue: number | typeof COFFEE_CARD | null
-  onCardClick: (value: number | typeof COFFEE_CARD, rect: DOMRect) => void
+  selectedValue: number | typeof COFFEE_CARD | typeof QUESTION_CARD | null
+  onCardClick: (value: number | typeof COFFEE_CARD | typeof QUESTION_CARD, rect: DOMRect) => void
   disabled?: boolean
-  animatingCard?: number | typeof COFFEE_CARD | null
+  animatingCard?: number | typeof COFFEE_CARD | typeof QUESTION_CARD | null
 }) {
   const cardRefs = useRef<Record<string | number, HTMLDivElement | null>>({})
 
-  const handleClick = (value: number | typeof COFFEE_CARD) => {
+  const handleClick = (value: number | typeof COFFEE_CARD | typeof QUESTION_CARD) => {
     const element = cardRefs.current[value]
     if (element) {
       const rect = element.getBoundingClientRect()
@@ -305,6 +314,18 @@ export function PokerCardDeck({
           />
         </div>
       ))}
+      <div
+        ref={(el) => { cardRefs.current[QUESTION_CARD] = el }}
+        className={animatingCard === QUESTION_CARD ? 'opacity-0' : ''}
+      >
+        <PokerCard
+          value={QUESTION_CARD}
+          isSelected={selectedValue === QUESTION_CARD && animatingCard !== QUESTION_CARD}
+          onClick={() => handleClick(QUESTION_CARD)}
+          disabled={disabled || animatingCard !== null}
+          size="md"
+        />
+      </div>
       <div
         ref={(el) => { cardRefs.current[COFFEE_CARD] = el }}
         className={animatingCard === COFFEE_CARD ? 'opacity-0' : ''}

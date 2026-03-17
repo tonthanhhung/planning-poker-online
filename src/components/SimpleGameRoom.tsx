@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useGame } from '@/hooks/useGame'
 import { usePlayer } from '@/hooks/usePlayer'
 import { useWebSocketPresence } from '@/hooks/useWebSocketPresence'
-import { COFFEE_CARD, type Vote, type Issue } from '@/types'
+import { CARD_VALUES, QUESTION_CARD, COFFEE_CARD, type Vote, type Issue } from '@/types'
 import { generateFunnyName } from '@/lib/funnyNames'
 
 // Utility function to generate automatic task names
@@ -28,9 +28,6 @@ interface SimpleGameRoomProps {
   onToggleMode: () => void
 }
 
-// Card values matching scrumpoker-online.org exactly
-const CARD_VALUES = [0, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100]
-
 export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
   const { playerId, playerName, isInitialized, updateName, syncPlayerId } = usePlayer()
   const { socket, isConnected, isPlayerActive } = useWebSocketPresence(gameId, playerId, playerName || '')
@@ -50,10 +47,11 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
     updateIssue: updateIssueSocket,
     socket: gameSocket,
     isConnected: isGameSocketConnected,
+    votesResetKey,
   } = useGame(gameId, playerId, playerName || '')
 
   const [isJoining, setIsJoining] = useState(false)
-  const [selectedCard, setSelectedCard] = useState<number | typeof COFFEE_CARD | null>(null)
+  const [selectedCard, setSelectedCard] = useState<number | typeof COFFEE_CARD | typeof QUESTION_CARD | null>(null)
   const [hasVoted, setHasVoted] = useState(false)
   const [showJoinModal, setShowJoinModal] = useState(!playerName)
   const [joinNameInput, setJoinNameInput] = useState('')
@@ -104,6 +102,14 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
     setHasVoted(false)
   }, [currentIssue?.id])
 
+  // Reset local voting state when votes are reset (by any player)
+  useEffect(() => {
+    if (votesResetKey > 0) {
+      setSelectedCard(null)
+      setHasVoted(false)
+    }
+  }, [votesResetKey])
+
   const handleJoinGame = async () => {
     const name = joinNameInput.trim()
     if (!name) return
@@ -138,7 +144,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
     }
   }
 
-  const handleCardClick = async (value: number | typeof COFFEE_CARD) => {
+  const handleCardClick = async (value: number | typeof COFFEE_CARD | typeof QUESTION_CARD) => {
     if (!playerId || isViewer || isRevealed) return
 
     const existingPlayer = currentPlayer
@@ -158,7 +164,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
         socket.emit('create-issue', { gameId, title, order, status: 'voting' }, (response: any) => {
           if (response.success) {
             issueId = response.issue.id
-            submitVoteSocket(issueId, typeof value === 'number' ? value : -1)
+            submitVoteSocket(issueId, typeof value === 'number' ? value : value === COFFEE_CARD ? -1 : -2)
             setHasVoted(true)
           } else {
             alert('Failed to create voting session')
@@ -167,7 +173,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
         })
       }
     } else {
-      await submitVoteSocket(issueId, typeof value === 'number' ? value : -1)
+      await submitVoteSocket(issueId, typeof value === 'number' ? value : value === COFFEE_CARD ? -1 : -2)
       setHasVoted(true)
     }
   }
@@ -197,6 +203,8 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
     if (nextIssue) {
       await updateIssueSocket(nextIssue.id, { status: 'voting' })
       await setStatus('voting')
+      // Reset votes for the new issue to clear everyone's voting state
+      resetVotesSocket(nextIssue.id)
     } else {
       await setStatus('lobby')
     }
@@ -243,7 +251,9 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
   const getPlayerVote = (playerId: string) => {
     const vote = currentVotes.find(v => v.player_id === playerId)
     if (!vote) return null
-    return vote.points < 0 ? COFFEE_CARD : vote.points
+    if (vote.points === -1) return COFFEE_CARD
+    if (vote.points === -2) return QUESTION_CARD
+    return vote.points
   }
 
   // Check if player has voted
@@ -425,40 +435,40 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
 
           {/* Cards Grid */}
           <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-6">
-            {/* Question mark / Coffee card */}
+            {/* Question mark card */}
             <button
-              onClick={() => handleCardClick(COFFEE_CARD)}
+              onClick={() => handleCardClick(QUESTION_CARD)}
               disabled={isRevealed || isViewer}
-              className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-white hover:-translate-y-1 hover:shadow-md ${
-                selectedCard === COFFEE_CARD
-                  ? 'border-primary ring-2 ring-primary ring-offset-2'
-                  : 'border-primary/30'
+              className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 hover:shadow-md ${
+                selectedCard === QUESTION_CARD
+                  ? 'bg-[#5B6A79] shadow-lg'
+                  : 'bg-white border-2 border-primary/30'
               }`}
-              title="Coffee break - Click to submit this estimate"
+              title="Question mark - Click to submit this estimate"
             >
-              <span className="absolute top-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-              <span className="absolute top-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-              <span className="absolute bottom-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-              <span className="absolute bottom-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-              <span className="text-xl sm:text-2xl font-bold text-[#5B6A79]">?</span>
+              <span className={`absolute top-1 left-1 text-[8px] sm:text-[10px] ${selectedCard === QUESTION_CARD ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+              <span className={`absolute top-1 right-1 text-[8px] sm:text-[10px] ${selectedCard === QUESTION_CARD ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+              <span className={`absolute bottom-1 left-1 text-[8px] sm:text-[10px] ${selectedCard === QUESTION_CARD ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+              <span className={`absolute bottom-1 right-1 text-[8px] sm:text-[10px] ${selectedCard === QUESTION_CARD ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+              <span className={`text-xl sm:text-2xl font-bold ${selectedCard === QUESTION_CARD ? 'text-white' : 'text-[#5B6A79]'}`}>{QUESTION_CARD}</span>
             </button>
 
             {/* Coffee icon card */}
             <button
               onClick={() => handleCardClick(COFFEE_CARD)}
               disabled={isRevealed || isViewer}
-              className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-white hover:-translate-y-1 hover:shadow-md ${
+              className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 hover:shadow-md ${
                 selectedCard === COFFEE_CARD
-                  ? 'border-primary ring-2 ring-primary ring-offset-2'
-                  : 'border-primary/30'
+                  ? 'bg-[#5B6A79] shadow-lg'
+                  : 'bg-white border-2 border-primary/30'
               }`}
               title="Coffee break - Click to submit this estimate"
             >
-              <span className="absolute top-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-              <span className="absolute top-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-              <span className="absolute bottom-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-              <span className="absolute bottom-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-              <span className="text-xl sm:text-2xl font-bold text-[#5B6A79]">☕</span>
+              <span className={`absolute top-1 left-1 text-[8px] sm:text-[10px] ${selectedCard === COFFEE_CARD ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+              <span className={`absolute top-1 right-1 text-[8px] sm:text-[10px] ${selectedCard === COFFEE_CARD ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+              <span className={`absolute bottom-1 left-1 text-[8px] sm:text-[10px] ${selectedCard === COFFEE_CARD ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+              <span className={`absolute bottom-1 right-1 text-[8px] sm:text-[10px] ${selectedCard === COFFEE_CARD ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+              <span className={`text-xl sm:text-2xl font-bold ${selectedCard === COFFEE_CARD ? 'text-white' : 'text-[#5B6A79]'}`}>☕</span>
             </button>
 
             {/* Number cards */}
@@ -467,18 +477,18 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
                 key={value}
                 onClick={() => handleCardClick(value)}
                 disabled={isRevealed || isViewer}
-                className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-white hover:-translate-y-1 hover:shadow-md ${
+                className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 hover:shadow-md ${
                   selectedCard === value
-                    ? 'border-primary ring-2 ring-primary ring-offset-2'
-                    : 'border-primary/30'
+                    ? 'bg-[#5B6A79] shadow-lg'
+                    : 'bg-white border-2 border-primary/30'
                 }`}
                 title={`${value} - Click to submit this estimate`}
               >
-                <span className="absolute top-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-                <span className="absolute top-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-                <span className="absolute bottom-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-                <span className="absolute bottom-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
-                <span className="text-xl sm:text-2xl font-bold text-[#5B6A79]">{value}</span>
+                <span className={`absolute top-1 left-1 text-[8px] sm:text-[10px] ${selectedCard === value ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+                <span className={`absolute top-1 right-1 text-[8px] sm:text-[10px] ${selectedCard === value ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+                <span className={`absolute bottom-1 left-1 text-[8px] sm:text-[10px] ${selectedCard === value ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+                <span className={`absolute bottom-1 right-1 text-[8px] sm:text-[10px] ${selectedCard === value ? 'text-white/60' : 'text-[#5B6A79]'}`}>✦</span>
+                <span className={`text-xl sm:text-2xl font-bold ${selectedCard === value ? 'text-white' : 'text-[#5B6A79]'}`}>{value}</span>
               </button>
             ))}
           </div>
@@ -641,21 +651,12 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
           {/* Sidebar - Voted Tasks */}
           <div className="md:col-span-1">
             <div className="bg-surface rounded-lg border border-border elevation-medium p-4 max-h-[calc(100vh-120px)] md:max-h-96 overflow-y-auto">
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3">
                 <h3 className="text-base font-semibold text-secondary">Voted Tasks</h3>
-                <button
-                  onClick={handleCreateNextTask}
-                  className="p-1.5 text-primary hover:bg-neutral-light rounded transition-colors"
-                  title="Create next task"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
               </div>
 
               {/* Voted Tasks List */}
-              <div className="space-y-1.5 max-h-96 overflow-y-auto">
+              <div className="space-y-1.5">
                 {issues.map((issue, index) => {
                   const issueVotes = votes[issue.id] || []
                   const isVoted = issueVotes.length > 0
