@@ -204,6 +204,41 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
     setHasVoted(false)
   }
 
+  const handleCreateNextTask = async () => {
+    const title = generateTaskName(issues)
+    const order = issues.length
+    if (socket) {
+      socket.emit('create-issue', { gameId, title, order, status: 'pending' }, (response: any) => {
+        if (response.success) {
+          refreshGame()
+        } else {
+          alert('Failed to create task')
+        }
+      })
+    }
+  }
+
+  const handleShare = async () => {
+    const url = window.location.href
+    try {
+      await navigator.clipboard.writeText(url)
+      alert('Room link copied to clipboard!')
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = url
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      alert('Room link copied to clipboard!')
+    }
+  }
+
+  const handleLeave = () => {
+    window.location.href = '/'
+  }
+
   // Get player's vote for display
   const getPlayerVote = (playerId: string) => {
     const vote = currentVotes.find(v => v.player_id === playerId)
@@ -218,6 +253,25 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
 
   // Non-voting players (viewers)
   const votingPlayers = players.filter(p => !p.is_viewer)
+
+  // Track which player cards have been revealed (for flip animation)
+  const [revealedPlayerIds, setRevealedPlayerIds] = useState<Set<string>>(new Set())
+  
+  // Trigger flip animation when revealed
+  useEffect(() => {
+    if (isRevealed && votingPlayers.length > 0) {
+      const allVoterIds = new Set(votingPlayers.filter(p => hasPlayerVoted(p.id)).map(p => p.id))
+      // Start with empty set (cards at 0deg), then add all IDs after render to trigger animation
+      setRevealedPlayerIds(new Set())
+      
+      // Trigger flip animation on next frame
+      requestAnimationFrame(() => {
+        setRevealedPlayerIds(allVoterIds)
+      })
+    } else {
+      setRevealedPlayerIds(new Set())
+    }
+  }, [isRevealed])
 
   if (isLoading) {
     return (
@@ -310,6 +364,28 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
             
             {/* Right: Action buttons */}
             <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+              {/* Share button */}
+              <button
+                onClick={handleShare}
+                className="p-2 text-secondary hover:bg-neutral-light rounded transition-colors"
+                title="Share room link"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+              </button>
+              
+              {/* Leave button */}
+              <button
+                onClick={handleLeave}
+                className="p-2 text-secondary hover:bg-neutral-light rounded transition-colors"
+                title="Leave room"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+
               {/* Simple Mode Toggle */}
               <button
                 onClick={onToggleMode}
@@ -353,36 +429,36 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
             <button
               onClick={() => handleCardClick(COFFEE_CARD)}
               disabled={isRevealed || isViewer}
-              className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-white hover:-translate-y-1 hover:shadow-md ${
                 selectedCard === COFFEE_CARD
-                  ? 'bg-primary border-primary text-white transform -translate-y-2 shadow-lg'
-                  : 'bg-primary-light border-primary/30 text-secondary hover:-translate-y-1 hover:shadow-md'
+                  ? 'border-primary ring-2 ring-primary ring-offset-2'
+                  : 'border-primary/30'
               }`}
-              title="Coffee break"
+              title="Coffee break - Click to submit this estimate"
             >
-              <span className="absolute top-1 left-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-              <span className="absolute top-1 right-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-              <span className="absolute bottom-1 left-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-              <span className="absolute bottom-1 right-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-              <span className="text-xl sm:text-2xl font-light">?</span>
+              <span className="absolute top-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+              <span className="absolute top-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+              <span className="absolute bottom-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+              <span className="absolute bottom-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+              <span className="text-xl sm:text-2xl font-bold text-[#5B6A79]">?</span>
             </button>
 
             {/* Coffee icon card */}
             <button
               onClick={() => handleCardClick(COFFEE_CARD)}
               disabled={isRevealed || isViewer}
-              className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-white hover:-translate-y-1 hover:shadow-md ${
                 selectedCard === COFFEE_CARD
-                  ? 'bg-primary border-primary text-white transform -translate-y-2 shadow-lg'
-                  : 'bg-primary-light border-primary/30 text-secondary hover:-translate-y-1 hover:shadow-md'
+                  ? 'border-primary ring-2 ring-primary ring-offset-2'
+                  : 'border-primary/30'
               }`}
-              title="Coffee break"
+              title="Coffee break - Click to submit this estimate"
             >
-              <span className="absolute top-1 left-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-              <span className="absolute top-1 right-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-              <span className="absolute bottom-1 left-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-              <span className="absolute bottom-1 right-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-              <span className="text-lg sm:text-xl">☕</span>
+              <span className="absolute top-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+              <span className="absolute top-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+              <span className="absolute bottom-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+              <span className="absolute bottom-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+              <span className="text-lg sm:text-xl font-bold text-[#5B6A79]">☕</span>
             </button>
 
             {/* Number cards */}
@@ -391,30 +467,21 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
                 key={value}
                 onClick={() => handleCardClick(value)}
                 disabled={isRevealed || isViewer}
-                className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-white hover:-translate-y-1 hover:shadow-md ${
                   selectedCard === value
-                    ? 'bg-primary border-primary text-white transform -translate-y-2 shadow-lg'
-                    : 'bg-primary-light border-primary/30 text-secondary hover:-translate-y-1 hover:shadow-md'
+                    ? 'border-primary ring-2 ring-primary ring-offset-2'
+                    : 'border-primary/30'
                 }`}
-                title={`Vote ${value}`}
+                title={`${value} - Click to submit this estimate`}
               >
-                <span className="absolute top-1 left-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-                <span className="absolute top-1 right-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-                <span className="absolute bottom-1 left-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-                <span className="absolute bottom-1 right-1 text-[8px] sm:text-[10px] text-primary/50">✦</span>
-                <span className="text-lg sm:text-xl font-light">{value}</span>
+                <span className="absolute top-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+                <span className="absolute top-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+                <span className="absolute bottom-1 left-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+                <span className="absolute bottom-1 right-1 text-[8px] sm:text-[10px] text-[#5B6A79]">✦</span>
+                <span className="text-lg sm:text-xl font-bold text-[#5B6A79]">{value}</span>
               </button>
             ))}
           </div>
-
-          {/* Tooltip hint */}
-          {hasVoted && !isRevealed && (
-            <div className="text-center">
-              <div className="inline-block bg-neutral text-white text-sm px-4 py-2 rounded">
-                Click to submit this estimate
-              </div>
-            </div>
-          )}
         </section>
 
         {/* Divider */}
@@ -469,6 +536,12 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
                     >
                       Hide
                     </button>
+                    <button
+                      onClick={handleNextIssue}
+                      className="px-4 py-2 bg-primary hover:bg-primary-hover rounded text-white text-sm font-medium transition-colors"
+                    >
+                      Next Task
+                    </button>
                   </>
                 )}
               </div>
@@ -488,7 +561,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
               <div className="min-w-[300px] divide-y divide-border">
                 {/* Table Header */}
                 <div className="px-4 py-3 flex items-center bg-neutral-subtle">
-                  <span className="flex-1 text-secondary font-medium min-w-0 truncate pr-2">Name</span>
+                  <span className="text-secondary font-medium min-w-0 truncate pr-1">Name</span>
                   <span className="w-20 sm:w-24 text-center text-secondary font-medium flex-shrink-0">Story Points</span>
                 </div>
 
@@ -496,18 +569,49 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
                 {votingPlayers.map((player) => {
                   const playerVote = getPlayerVote(player.id)
                   const voted = hasPlayerVoted(player.id)
+                  const isFlipped = revealedPlayerIds.has(player.id)
+                  const shouldShowFace = isRevealed && voted
                   
                   return (
                     <div key={player.id} className="px-4 py-3 flex items-center hover:bg-neutral-light">
-                      <span className="flex-1 text-secondary min-w-0 truncate pr-2">{player.name}</span>
+                      <span className="text-secondary min-w-0 truncate pr-1">{player.name}</span>
                       <div className="w-20 sm:w-24 flex justify-center flex-shrink-0">
-                        {isRevealed && voted ? (
-                          <div className="relative w-10 h-14 sm:w-12 sm:h-16 bg-primary-light border border-primary/30 rounded flex items-center justify-center text-base sm:text-lg font-medium text-secondary">
-                            <span className="absolute top-0.5 left-0.5 text-[6px] sm:text-[8px] text-primary/50">✦</span>
-                            <span className="absolute top-0.5 right-0.5 text-[6px] sm:text-[8px] text-primary/50">✦</span>
-                            <span className="absolute bottom-0.5 left-0.5 text-[6px] sm:text-[8px] text-primary/50">✦</span>
-                            <span className="absolute bottom-0.5 right-0.5 text-[6px] sm:text-[8px] text-primary/50">✦</span>
-                            {playerVote}
+                        {shouldShowFace ? (
+                          <div 
+                            className="relative w-10 h-14 sm:w-12 sm:h-16"
+                            style={{ perspective: '1000px' }}
+                          >
+                            <div 
+                              className="relative w-full h-full transition-transform duration-600 transform-style-3d"
+                              style={{ 
+                                transformStyle: 'preserve-3d',
+                                transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                              }}
+                            >
+                              {/* Card Back (face-down) */}
+                              <div 
+                                className="absolute w-full h-full bg-white border border-primary/30 rounded flex items-center justify-center backface-hidden"
+                                style={{ backfaceVisibility: 'hidden' }}
+                              >
+                                <svg className="w-6 h-6 text-primary/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h7" />
+                                </svg>
+                              </div>
+                              {/* Card Front (face-up with number) */}
+                              <div 
+                                className="absolute w-full h-full bg-white border border-primary/30 rounded flex items-center justify-center"
+                                style={{ 
+                                  backfaceVisibility: 'hidden',
+                                  transform: 'rotateY(180deg)',
+                                }}
+                              >
+                                <span className="absolute top-0.5 left-0.5 text-[6px] sm:text-[8px] text-[#5B6A79]">✦</span>
+                                <span className="absolute top-0.5 right-0.5 text-[6px] sm:text-[8px] text-[#5B6A79]">✦</span>
+                                <span className="absolute bottom-0.5 left-0.5 text-[6px] sm:text-[8px] text-[#5B6A79]">✦</span>
+                                <span className="absolute bottom-0.5 right-0.5 text-[6px] sm:text-[8px] text-[#5B6A79]">✦</span>
+                                <span className="text-base sm:text-lg font-bold text-[#5B6A79]">{playerVote}</span>
+                              </div>
+                            </div>
                           </div>
                         ) : voted ? (
                           <div className="w-10 h-14 sm:w-12 sm:h-16 bg-neutral-light border border-border rounded flex items-center justify-center">
@@ -539,6 +643,15 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
             <div className="bg-surface rounded-lg border border-border elevation-medium p-4 max-h-[calc(100vh-120px)] md:max-h-96 overflow-y-auto">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-secondary">Voted Tasks</h3>
+                <button
+                  onClick={handleCreateNextTask}
+                  className="p-1.5 text-primary hover:bg-neutral-light rounded transition-colors"
+                  title="Create next task"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
               </div>
 
               {/* Voted Tasks List */}
