@@ -125,6 +125,9 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
   // Track if user just clicked Reveal (for confetti trigger)
   const [justRevealed, setJustRevealed] = useState(false)
   
+  // Track vote changes after reveal for each issue and player
+  const [voteChangesAfterReveal, setVoteChangesAfterReveal] = useState<Record<string, Set<string>>>({})
+  
   // Flying card animation state
   const [flyingCard, setFlyingCard] = useState<{
     value: number | typeof COFFEE_CARD | typeof QUESTION_CARD
@@ -315,11 +318,8 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
       alert('You need to join the game first.')
       return
     }
-    // Allow changing card even if already voted (before reveal)
-    if (game?.status === 'revealed') {
-      alert('Voting has ended. Cannot change your vote.')
-      return
-    }
+    // Allow changing card even if already voted (both before and after reveal)
+    // This allows users to change their minds even after cards are revealed
 
     // Check if player exists in this game
     // Use currentPlayer which handles fallback by name if playerId not found
@@ -399,9 +399,25 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
         })
       }
     } else {
+      // Check if this is a vote change after reveal
+      const existingVote = currentVotes.find(v => v.player_id === existingPlayer.id)
+      const isVoteChange = existingVote && game?.status === 'revealed'
+      
       // Submit vote via Socket.IO
       await submitVoteSocket(issueId, typeof flyingCard.value === 'number' ? flyingCard.value : flyingCard.value === COFFEE_CARD ? -1 : -2)
       setHasVoted(true)
+      
+      // Track vote change after reveal
+      if (isVoteChange && currentIssue) {
+        setVoteChangesAfterReveal(prev => {
+          const newState = { ...prev }
+          if (!newState[currentIssue.id]) {
+            newState[currentIssue.id] = new Set()
+          }
+          newState[currentIssue.id].add(existingPlayer.id)
+          return newState
+        })
+      }
     }
 
     // Clear flying card after submission
@@ -924,6 +940,12 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                                   Voted
                                 </span>
                               )}
+                              {/* Vote changed badge - shows if votes were changed after reveal */}
+                              {isVoted && voteChangesAfterReveal[issue.id] && voteChangesAfterReveal[issue.id].size > 0 && (
+                                <span className="text-[10px] font-medium text-primary bg-blue-light px-1.5 py-0.5 rounded">
+                                  Updated
+                                </span>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
@@ -1120,6 +1142,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                   gameId={gameId}
                   socket={gameSocket}
                   pendingVote={pendingVote}
+                  voteChangesAfterReveal={voteChangesAfterReveal}
                   onReveal={handleReveal}
                   onResetVotes={handleResetVotes}
                   onNextIssue={handleNextIssue}
@@ -1127,9 +1150,9 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                 />
               </div>
 
-              {/* Voting Cards - Hidden for viewers, shown when game is in voting/lobby state */}
-              {/* Show when: game is in voting/lobby, user is not a viewer (treat undefined/null as not viewer) */}
-              {(game?.status === 'voting' || game?.status === 'lobby') && !isViewer && (
+              {/* Voting Cards - Hidden for viewers, shown when game is in voting/lobby/revealed state */}
+              {/* Show when: game is in voting/lobby/revealed, user is not a viewer (treat undefined/null as not viewer) */}
+              {(game?.status === 'voting' || game?.status === 'lobby' || game?.status === 'revealed') && !isViewer && (
                 <div className="text-center border-t border-border pt-6">
                   <p className="text-neutral mb-4 h-6 flex items-center justify-center">
                     {hasVoted ? (
@@ -1137,7 +1160,11 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                         <svg className="w-4 h-4 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        Vote submitted! Change your vote anytime below
+                        {game?.status === 'revealed' ? (
+                          <span>Cards revealed! You can still change your vote below</span>
+                        ) : (
+                          <span>Vote submitted! Change your vote anytime below</span>
+                        )}
                       </span>
                     ) : (
                       <span className="opacity-0">Vote submitted! Change your vote anytime below</span>
@@ -1152,8 +1179,8 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                 </div>
               )}
 
-              {/* Viewer Message - Shown for viewers when game is in voting/lobby state */}
-              {(game?.status === 'voting' || game?.status === 'lobby') && isViewer && (
+              {/* Viewer Message - Shown for viewers when game is in voting/lobby/revealed state */}
+              {(game?.status === 'voting' || game?.status === 'lobby' || game?.status === 'revealed') && isViewer && (
                 <div className="text-center border-t border-border pt-6">
                   <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-lg">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1367,6 +1394,12 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                           {isVoted && (
                             <span className="text-[10px] font-medium text-success bg-green-light px-1.5 py-0.5 rounded">
                               Voted
+                            </span>
+                          )}
+                          {/* Vote changed badge - shows if votes were changed after reveal */}
+                          {isVoted && voteChangesAfterReveal[issue.id] && voteChangesAfterReveal[issue.id].size > 0 && (
+                            <span className="text-[10px] font-medium text-primary bg-blue-light px-1.5 py-0.5 rounded">
+                              Updated
                             </span>
                           )}
                           {/* Delete button - shows on hover */}
