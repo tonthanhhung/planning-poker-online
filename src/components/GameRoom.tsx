@@ -63,6 +63,8 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     shouldShowStreakStats,
     totalRevotes,
     votesResetKey,
+    // Sync state
+    voteChangesAfterReveal,
   } = useGame(gameId, playerId, playerName || '')
 
   const [isJoining, setIsJoining] = useState(false)
@@ -124,9 +126,6 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
   
   // Track if user just clicked Reveal (for confetti trigger)
   const [justRevealed, setJustRevealed] = useState(false)
-  
-  // Track vote changes after reveal for each issue and player
-  const [voteChangesAfterReveal, setVoteChangesAfterReveal] = useState<Record<string, Set<string>>>({})
   
   // Flying card animation state
   const [flyingCard, setFlyingCard] = useState<{
@@ -407,16 +406,16 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
       await submitVoteSocket(issueId, typeof flyingCard.value === 'number' ? flyingCard.value : flyingCard.value === COFFEE_CARD ? -1 : -2)
       setHasVoted(true)
       
-      // Track vote change after reveal
+      // Track vote change after reveal - emit to server for sync
       if (isVoteChange && currentIssue) {
-        setVoteChangesAfterReveal(prev => {
-          const newState = { ...prev }
-          if (!newState[currentIssue.id]) {
-            newState[currentIssue.id] = new Set()
-          }
-          newState[currentIssue.id].add(existingPlayer.id)
-          return newState
-        })
+        // Emit WebSocket event to sync with other players
+        if (socket) {
+          socket.emit('vote-changed-after-reveal', { 
+            gameId, 
+            issueId: currentIssue.id, 
+            playerId: existingPlayer.id 
+          })
+        }
       }
     }
 

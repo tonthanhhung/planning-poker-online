@@ -28,6 +28,7 @@ interface UseGameActions {
 
 interface UseGameSyncState {
   votesResetKey: number
+  voteChangesAfterReveal: Record<string, Set<string>>
 }
 
 interface UseGameGamification {
@@ -85,6 +86,7 @@ export function useGame(
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [votesResetKey, setVotesResetKey] = useState(0)
+  const [voteChangesAfterReveal, setVoteChangesAfterReveal] = useState<Record<string, Set<string>>>({})
   
   // Track total revotes across all issues (incremented when votes are reset during voting)
   const [totalRevotes, setTotalRevotes] = useState(() => {
@@ -299,8 +301,27 @@ export function useGame(
         ...prev,
         [resetIssueId]: [],
       }))
+      // Clear vote changes after reveal for this issue
+      setVoteChangesAfterReveal(prev => {
+        const newState = { ...prev }
+        delete newState[resetIssueId]
+        return newState
+      })
       // Increment key to signal all clients to reset local voting state
       setVotesResetKey(prev => prev + 1)
+    }
+
+    // Vote changed after reveal
+    const handleVoteChangedAfterReveal = ({ issueId, playerId }: { issueId: string; playerId: string }) => {
+      console.log('Vote changed after reveal:', { issueId, playerId })
+      setVoteChangesAfterReveal(prev => {
+        const newState = { ...prev }
+        if (!newState[issueId]) {
+          newState[issueId] = new Set()
+        }
+        newState[issueId].add(playerId)
+        return newState
+      })
     }
 
     socket.on('game-updated', handleGameUpdated)
@@ -312,6 +333,7 @@ export function useGame(
     socket.on('issue-deleted', handleIssueDeleted)
     socket.on('votes-updated', handleVotesUpdated)
     socket.on('votes-reset', handleVotesReset)
+    socket.on('vote-changed-after-reveal', handleVoteChangedAfterReveal)
 
     return () => {
       socket.off('game-updated', handleGameUpdated)
@@ -323,6 +345,7 @@ export function useGame(
       socket.off('issue-deleted', handleIssueDeleted)
       socket.off('votes-updated', handleVotesUpdated)
       socket.off('votes-reset', handleVotesReset)
+      socket.off('vote-changed-after-reveal', handleVoteChangedAfterReveal)
     }
   }, [socket])
 
@@ -499,5 +522,6 @@ export function useGame(
     allIssueStats,
     // Sync state
     votesResetKey,
+    voteChangesAfterReveal,
   }
 }

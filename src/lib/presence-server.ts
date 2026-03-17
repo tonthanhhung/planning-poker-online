@@ -329,6 +329,13 @@ export class PresenceServer {
         socket.to(gameId).emit('card-placed', { playerId, playerName, cardValue })
       })
 
+      // Handle vote changes after reveal
+      socket.on('vote-changed-after-reveal', ({ gameId, issueId, playerId }) => {
+        console.log(`Vote changed after reveal: player ${playerId} on issue ${issueId} in game ${gameId}`)
+        // Broadcast to all clients in game
+        this.io?.to(gameId).emit('vote-changed-after-reveal', { issueId, playerId })
+      })
+
       // Handle disconnect
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id)
