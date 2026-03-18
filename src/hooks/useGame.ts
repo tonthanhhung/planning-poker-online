@@ -77,7 +77,7 @@ export function useGame(
   gameId: string | null,
   playerId: string | null,
   playerName: string
-): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean; trackActivity: () => void } & UseGameActions & UseGameGamification & UseGameSyncState {
+): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean; trackActivity: () => void; isTabActive: boolean } & UseGameActions & UseGameGamification & UseGameSyncState {
   const [game, setGame] = useState<Game | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
   const [issues, setIssues] = useState<Issue[]>([])
