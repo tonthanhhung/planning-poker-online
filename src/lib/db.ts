@@ -196,10 +196,18 @@ export async function deleteGame(gameId: string): Promise<void> {
   await getPool().query('DELETE FROM games WHERE id = $1', [gameId])
 }
 
-// Get game's last activity time (based on most recent player activity)
+// Get game's last activity time (most recent of: player last_active OR game created_at)
+// Falls back to created_at so new/empty games are never wrongly treated as stale
 export async function getGameLastActivity(gameId: string): Promise<Date | null> {
   const result = await getPool().query(
-    'SELECT MAX(last_active) as last_active FROM players WHERE game_id = $1',
+    `SELECT GREATEST(
+       MAX(p.last_active),
+       g.created_at
+     ) as last_active
+     FROM games g
+     LEFT JOIN players p ON p.game_id = g.id
+     WHERE g.id = $1
+     GROUP BY g.created_at`,
     [gameId]
   )
   return result.rows[0]?.last_active || null

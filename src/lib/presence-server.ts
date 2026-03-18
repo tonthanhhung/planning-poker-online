@@ -28,8 +28,8 @@ export interface PlayerPresence {
   isOnline: boolean
 }
 
-// Game cleanup threshold: 30 minutes of inactivity
-const GAME_CLEANUP_THRESHOLD = 30 * 60 * 1000
+// Game cleanup threshold: 30 days of inactivity
+const GAME_CLEANUP_THRESHOLD = 30 * 24 * 60 * 60 * 1000
 
 export class PresenceServer {
   private io: SocketIOServer | null = null
