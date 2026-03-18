@@ -17,7 +17,11 @@ interface UseSocketReturn {
   error: string | null
   presence: Map<string, PlayerPresence>
   trackActivity: () => void
+  isTabActive: boolean
 }
+
+// Time after which we stop sending activity if tab is inactive (10 minutes)
+const TAB_INACTIVE_TIMEOUT = 10 * 60 * 1000
 
 export function useSocket(
   gameId: string | null,
@@ -29,6 +33,11 @@ export function useSocket(
   const [isConnecting, setIsConnecting] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [presence, setPresence] = useState<Map<string, PlayerPresence>>(new Map())
+  const [isTabActive, setIsTabActive] = useState(true)
+  
+  // Track last activity time and tab visibility
+  const lastActivityTime = useRef<number>(Date.now())
+  const tabInactiveTimer = useRef<NodeJS.Timeout | null>(null)
   
   // Initialize socket connection
   useEffect(() => {
@@ -79,6 +88,69 @@ export function useSocket(
     }
   }, [])
 
+  // Track tab visibility and focus
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === 'visible'
+      console.log('Tab visibility changed:', isVisible ? 'visible' : 'hidden')
+      
+      if (isVisible) {
+        // Tab became active - resume activity tracking
+        setIsTabActive(true)
+        lastActivityTime.current = Date.now()
+        if (tabInactiveTimer.current) {
+          clearTimeout(tabInactiveTimer.current)
+          tabInactiveTimer.current = null
+        }
+      } else {
+        // Tab became inactive - start timer
+        lastActivityTime.current = Date.now()
+        tabInactiveTimer.current = setTimeout(() => {
+          console.log('Tab inactive for 10 minutes, pausing activity tracking')
+          setIsTabActive(false)
+        }, TAB_INACTIVE_TIMEOUT)
+      }
+    }
+
+    const handleFocus = () => {
+      console.log('Window focused')
+      setIsTabActive(true)
+      lastActivityTime.current = Date.now()
+      if (tabInactiveTimer.current) {
+        clearTimeout(tabInactiveTimer.current)
+        tabInactiveTimer.current = null
+      }
+    }
+
+    const handleBlur = () => {
+      console.log('Window blurred')
+      lastActivityTime.current = Date.now()
+      tabInactiveTimer.current = setTimeout(() => {
+        console.log('Tab inactive for 10 minutes, pausing activity tracking')
+        setIsTabActive(false)
+      }, TAB_INACTIVE_TIMEOUT)
+    }
+
+    // Listen for visibility and focus events
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('blur', handleBlur)
+
+    // Initial check
+    if (document.visibilityState === 'hidden') {
+      handleVisibilityChange()
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('blur', handleBlur)
+      if (tabInactiveTimer.current) {
+        clearTimeout(tabInactiveTimer.current)
+      }
+    }
+  }, [])
+
   // Join game when we have gameId and playerId
   useEffect(() => {
     if (!socket || !isConnected || !gameId || !playerId) return
@@ -102,9 +174,17 @@ export function useSocket(
   // Activity tracking to maintain presence (only on meaningful actions, not periodic pings)
   // This allows the server to auto-suspend when idle while still tracking active players
   const trackActivity = useCallback(() => {
+    // Don't send activity if tab has been inactive for 10+ minutes
+    if (!isTabActive) {
+      console.log('Activity tracking paused (tab inactive for 10+ minutes)')
+      return
+    }
+    
     if (!socket || !isConnected || !gameId || !playerId) return
+    
+    lastActivityTime.current = Date.now()
     socket.emit('activity', { gameId, playerId })
-  }, [socket, isConnected, gameId, playerId])
+  }, [socket, isConnected, gameId, playerId, isTabActive])
 
   return {
     trackActivity,
@@ -113,5 +193,6 @@ export function useSocket(
     isConnecting,
     error,
     presence,
+    isTabActive,
   }
 }

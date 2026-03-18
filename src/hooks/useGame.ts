@@ -189,7 +189,7 @@ export function useGame(
   }, [allIssueStats])
   
   // Use the shared socket hook
-  const { socket, isConnected, trackActivity } = useSocket(gameId, playerId, playerName)
+  const { socket, isConnected, trackActivity, isTabActive } = useSocket(gameId, playerId, playerName)
 
   // Load initial game data
   const loadGame = useCallback(async () => {
@@ -517,6 +517,7 @@ export function useGame(
     socket,
     isConnected,
     trackActivity,
+    isTabActive,
     // Gamification stats
     streakStats,
     topStreakLeaders,

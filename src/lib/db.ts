@@ -183,3 +183,24 @@ export async function getAllGames(): Promise<Game[]> {
   const result = await getPool().query('SELECT * FROM games ORDER BY created_at DESC')
   return result.rows
 }
+
+// Delete a game and all related data (players, issues, votes)
+export async function deleteGame(gameId: string): Promise<void> {
+  // Delete votes first (foreign key constraint)
+  await pool.query('DELETE FROM votes WHERE game_id = $1', [gameId])
+  // Delete issues
+  await pool.query('DELETE FROM issues WHERE game_id = $1', [gameId])
+  // Delete players
+  await pool.query('DELETE FROM players WHERE game_id = $1', [gameId])
+  // Delete game
+  await pool.query('DELETE FROM games WHERE id = $1', [gameId])
+}
+
+// Get game's last activity time (based on most recent player activity)
+export async function getGameLastActivity(gameId: string): Promise<Date | null> {
+  const result = await pool.query(
+    'SELECT MAX(last_active) as last_active FROM players WHERE game_id = $1',
+    [gameId]
+  )
+  return result.rows[0]?.last_active || null
+}
