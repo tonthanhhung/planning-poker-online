@@ -15,6 +15,8 @@ import {
   removePlayer,
   updatePlayerLastActive,
   updatePlayerName,
+  deleteGame,
+  getGameLastActivity,
 } from './db'
 import type { Game, Player, Issue, Vote } from '@/types'
 
@@ -26,9 +28,14 @@ export interface PlayerPresence {
   isOnline: boolean
 }
 
+// Game cleanup threshold: 30 minutes of inactivity
+const GAME_CLEANUP_THRESHOLD = 30 * 60 * 1000
+
 export class PresenceServer {
   private io: SocketIOServer | null = null
   private presence: Map<string, PlayerPresence> = new Map()
+  // Track last activity time per game (in-memory only, persists during server lifetime)
+  private gameActivity: Map<string, number> = new Map()
   // No more periodic check interval - allows server to auto-suspend when idle
   private readonly OFFLINE_THRESHOLD = 60000 // 60 seconds - longer threshold allows auto-suspend
 
@@ -41,6 +48,51 @@ export class PresenceServer {
       // Broadcast presence update only on activity, not on a timer
       this.broadcastPresence(gameId)
     }
+    // Track game activity for cleanup
+    this.gameActivity.set(gameId, Date.now())
+  }
+
+  // Check and cleanup stale games (called lazily when game is accessed)
+  private async cleanupStaleGame(gameId: string): Promise<boolean> {
+    const lastActivity = this.gameActivity.get(gameId)
+    
+    // If no in-memory activity, check database
+    if (!lastActivity) {
+      try {
+        const dbLastActivity = await getGameLastActivity(gameId)
+        if (dbLastActivity) {
+          const dbTime = new Date(dbLastActivity).getTime()
+          this.gameActivity.set(gameId, dbTime)
+          
+          if (Date.now() - dbTime > GAME_CLEANUP_THRESHOLD) {
+            console.log(`Game ${gameId} stale (DB check), deleting...`)
+            await deleteGame(gameId)
+            this.gameActivity.delete(gameId)
+            return true // Game was deleted
+          }
+        }
+      } catch (error) {
+        // Game might not exist
+        console.log(`Game ${gameId} not found in DB`)
+        return true
+      }
+      return false
+    }
+    
+    // Check if game is stale based on in-memory activity
+    if (Date.now() - lastActivity > GAME_CLEANUP_THRESHOLD) {
+      console.log(`Game ${gameId} stale (memory check), deleting...`)
+      try {
+        await deleteGame(gameId)
+        this.gameActivity.delete(gameId)
+        return true // Game was deleted
+      } catch (error) {
+        console.error(`Failed to delete stale game ${gameId}:`, error)
+        return false
+      }
+    }
+    
+    return false // Game is still active
   }
 
   attach(server: NetServer) {
@@ -78,6 +130,14 @@ export class PresenceServer {
       socket.on('get-game', async ({ gameId }, callback) => {
         try {
           console.log(`Fetching game: ${gameId}`)
+          
+          // Check if game is stale and delete if needed
+          const wasDeleted = await this.cleanupStaleGame(gameId)
+          if (wasDeleted) {
+            callback({ success: false, error: 'Game not found or has expired' })
+            return
+          }
+          
           const data = await getGame(gameId)
           callback({ success: true, ...data })
         } catch (error) {
@@ -90,6 +150,13 @@ export class PresenceServer {
       socket.on('join-game', async ({ gameId, playerId, playerName }, callback) => {
         try {
           console.log(`Player joining: ${playerName} (${playerId}) to game ${gameId}`)
+          
+          // Check if game is stale and delete if needed
+          const wasDeleted = await this.cleanupStaleGame(gameId)
+          if (wasDeleted) {
+            callback({ success: false, error: 'Game not found or has expired' })
+            return
+          }
           
           // Join socket room
           socket.join(gameId)
