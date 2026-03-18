@@ -3,7 +3,7 @@
 import { useEffect, useCallback, useState } from 'react'
 import { useSocket } from './useSocket'
 
-const OFFLINE_THRESHOLD = 30000 // Consider offline after 30 seconds
+const OFFLINE_THRESHOLD = 60000 // Consider offline after 60 seconds (allows server to auto-suspend)
 
 export function useActivePlayers(
   gameId: string | null,
@@ -30,20 +30,11 @@ export function useActivePlayers(
     setActivePlayerIds(activeIds)
   }, [gameId, presence])
 
-  // Periodically check active players
+  // Check active players when presence updates (not on a timer to save CPU)
   useEffect(() => {
     if (!gameId || !isConnected) return
-
-    // Initial check
     checkActivePlayers()
-
-    // Set up interval to check every 5 seconds
-    const checkInterval = setInterval(checkActivePlayers, 5000)
-
-    return () => {
-      clearInterval(checkInterval)
-    }
-  }, [gameId, isConnected, checkActivePlayers])
+  }, [gameId, isConnected, presence, checkActivePlayers])
 
   const isPlayerActive = useCallback(
     (id: string) => activePlayerIds.has(id),

@@ -77,7 +77,7 @@ export function useGame(
   gameId: string | null,
   playerId: string | null,
   playerName: string
-): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean } & UseGameActions & UseGameGamification & UseGameSyncState {
+): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean; trackActivity: () => void } & UseGameActions & UseGameGamification & UseGameSyncState {
   const [game, setGame] = useState<Game | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
   const [issues, setIssues] = useState<Issue[]>([])
@@ -151,45 +151,45 @@ export function useGame(
       playerVotes.forEach(vote => {
         if (vote.points < 0) return // Skip coffee breaks
         
-        const playerStats = statsMap.get(vote.playerId)
-        if (playerStats) {
-          playerStats.totalVotes += 1
-          // Check if this player's vote matches the mode (majority)
+        const stats = statsMap.get(vote.playerId)
+        if (stats) {
+          stats.totalVotes++
           if (vote.points === issueStats.mode) {
-            playerStats.majorityAlignments += 1
+            stats.majorityAlignments++
           }
         }
       })
     })
     
-    // Calculate percentages and convert to array
-    const result = Array.from(statsMap.values())
+    // Calculate alignment percentages
+    return Array.from(statsMap.values()).map(stats => ({
+      ...stats,
+      alignmentPercentage: stats.totalVotes > 0
+        ? Math.round((stats.majorityAlignments / stats.totalVotes) * 100)
+        : 0,
+    }))
+  }, [allIssueStats, players])
+  
+  // Get top streak leaders (sorted by alignment percentage, then total votes)
+  const topStreakLeaders = useMemo(() => {
+    return [...streakStats]
       .filter(s => s.totalVotes > 0)
-      .map(s => ({
-        ...s,
-        alignmentPercentage: Math.round((s.majorityAlignments / s.totalVotes) * 100),
-      }))
       .sort((a, b) => {
-        // Sort by alignment percentage (descending), then by total votes (descending)
         if (b.alignmentPercentage !== a.alignmentPercentage) {
           return b.alignmentPercentage - a.alignmentPercentage
         }
         return b.totalVotes - a.totalVotes
       })
-    
-    return result
-  }, [allIssueStats, players])
+      .slice(0, 3)
+  }, [streakStats])
   
-  // Get top 2 streak leaders
-  const topStreakLeaders = useMemo(() => streakStats.slice(0, 2), [streakStats])
-  
-  // Check if streak stats should be shown (>= 5 completed tasks OR >= 3 total revotes)
+  // Check if we should show streak stats (after at least 2 issues have been voted on)
   const shouldShowStreakStats = useMemo(() => {
-    const completedIssues = issues.filter(i => i.status === 'completed').length
-    return completedIssues >= 5 || totalRevotes >= 3
-  }, [issues, totalRevotes])
-
-  const { socket, isConnected } = useSocket(gameId, playerId, playerName)
+    return allIssueStats.filter(s => s.totalVotes > 1).length >= 2
+  }, [allIssueStats])
+  
+  // Use the shared socket hook
+  const { socket, isConnected, trackActivity } = useSocket(gameId, playerId, playerName)
 
   // Load initial game data
   const loadGame = useCallback(async () => {
@@ -352,15 +352,16 @@ export function useGame(
   // Update game status
   const updateGameStatus = useCallback(
     async (status: GameStatus) => {
-      if (!gameId || !socket) return
+      if (!gameId || !socket || !playerId) return
 
-      socket.emit('update-game-status', { gameId, status }, (response: any) => {
+      trackActivity()
+      socket.emit('update-game-status', { gameId, status, playerId }, (response: any) => {
         if (!response.success) {
           console.error('Failed to update game status:', response.error)
         }
       })
     },
-    [gameId, socket]
+    [gameId, socket, playerId, trackActivity]
   )
 
   // Submit vote
@@ -437,18 +438,19 @@ export function useGame(
   // Reset votes
   const resetVotes = useCallback(
     async (issueId: string) => {
-      if (!gameId || !socket) return
+      if (!gameId || !socket || !playerId) return
 
       // Increment total revotes counter
       setTotalRevotes(prev => prev + 1)
 
-      socket.emit('reset-votes', { gameId, issueId }, (response: any) => {
+      trackActivity()
+      socket.emit('reset-votes', { gameId, issueId, playerId }, (response: any) => {
         if (!response.success) {
           console.error('Failed to reset votes:', response.error)
         }
       })
     },
-    [gameId, socket]
+    [gameId, socket, playerId, trackActivity]
   )
   
   // Track issue stats when game status changes to revealed
@@ -514,6 +516,7 @@ export function useGame(
     setVotes,
     socket,
     isConnected,
+    trackActivity,
     // Gamification stats
     streakStats,
     topStreakLeaders,
