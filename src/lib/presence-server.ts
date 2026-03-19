@@ -31,8 +31,8 @@ export interface PlayerPresence {
 // Game cleanup threshold: 30 days of inactivity
 const GAME_CLEANUP_THRESHOLD = 30 * 24 * 60 * 60 * 1000
 
-// Kick timeout: 10 seconds
-const KICK_TIMEOUT = 10 * 1000
+// Kick timeout: 30 seconds
+const KICK_TIMEOUT = 30 * 1000
 
 interface PendingKick {
   targetPlayerId: string

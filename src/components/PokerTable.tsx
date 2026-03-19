@@ -565,7 +565,7 @@ export function PokerTable({
                   e.stopPropagation()
                   onInitiateKick?.(player.id)
                 }}
-                className="absolute -right-6 top-0 z-20 w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 hover:scale-110 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 text-lg"
+                className="absolute -right-6 top-0 z-20 w-8 h-8 flex items-center justify-center bg-red-400/70 hover:bg-red-500/90 hover:scale-110 text-white rounded-full shadow-lg shadow-red-400/30 opacity-0 group-hover:opacity-100 transition-all duration-200 text-lg"
                 title={`Kick ${player.name}`}
               >
                 💀
