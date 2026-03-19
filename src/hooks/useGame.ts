@@ -421,7 +421,7 @@ export function useGame(
       socket.off('kick-rejected', handleKickRejected)
       socket.off('player-kicked', handlePlayerKicked)
     }
-  }, [socket])
+  }, [socket, playerId, pendingKick])
 
   // Update game status
   const updateGameStatus = useCallback(
