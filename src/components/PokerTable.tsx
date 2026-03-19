@@ -571,8 +571,8 @@ export function PokerTable({
                 className="absolute -right-6 top-0 z-20 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
                 title={`Kick ${player.name}`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2c-4 0-7 3-7 7 0 1.5.5 3 1.5 4 .5.5 1 1 1 2v2c0 1.1.9 2 2 2h5c1.1 0 2-.9 2-2v-2c0-1 .5-1.5 1-2 1-1 1.5-2.5 1.5-4 0-4-3-7-7-7zM9 19h6M10 22h4" />
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C8 2 5 5 5 9c0 2 1 3.5 2 4.5.5.5 1 1 1 1.5v2c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2c0-.5.5-1 1-1.5 1-1 2-2.5 2-4.5 0-4-3-7-7-7zM9 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm6 0c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm-3 2c-.6 0-1-.4-1-1h2c0 .6-.4 1-1 1zm-2 3h4v1H10z"/>
                 </svg>
               </motion.button>
             )}
@@ -623,8 +623,8 @@ export function PokerTable({
                 className={`absolute z-20 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity ${position === 'left' ? '-left-6' : '-right-6'}`}
                 title={`Kick ${player.name}`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2c-4 0-7 3-7 7 0 1.5.5 3 1.5 4 .5.5 1 1 1 2v2c0 1.1.9 2 2 2h5c1.1 0 2-.9 2-2v-2c0-1 .5-1.5 1-2 1-1 1.5-2.5 1.5-4 0-4-3-7-7-7zM9 19h6M10 22h4" />
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C8 2 5 5 5 9c0 2 1 3.5 2 4.5.5.5 1 1 1 1.5v2c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2c0-.5.5-1 1-1.5 1-1 2-2.5 2-4.5 0-4-3-7-7-7zM9 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm6 0c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm-3 2c-.6 0-1-.4-1-1h2c0 .6-.4 1-1 1zm-2 3h4v1H10z"/>
                 </svg>
               </motion.button>
             )}
