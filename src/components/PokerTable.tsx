@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { FlyingReactions, ReactionPicker, type FlyingEmoji } from './Reactions'
+import { AnimatedSkull } from './AnimatedSkull'
 import type { Player } from '@/types'
 import { QUESTION_CARD, COFFEE_CARD } from '@/types'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
@@ -560,16 +561,14 @@ export function PokerTable({
           <div className="flex flex-col items-center gap-1 relative">
             {/* Kick button - appears on hover */}
             {canKick && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onInitiateKick?.(player.id)
-                }}
-                className="absolute -right-6 top-0 z-20 w-8 h-8 flex items-center justify-center bg-red-400/70 hover:bg-red-500/90 hover:scale-110 text-white rounded-full shadow-lg shadow-red-400/30 opacity-0 group-hover:opacity-100 transition-all duration-200 text-lg"
-                title={`Kick ${player.name}`}
-              >
-                💀
-              </button>
+              <div className="absolute -right-7 top-0 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <AnimatedSkull
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onInitiateKick?.(player.id)
+                  }}
+                />
+              </div>
             )}
             {position === 'top' && renderPlayerCard(player)}
             <span className={`text-xs font-semibold block text-center ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
@@ -607,16 +606,14 @@ export function PokerTable({
           <div className="flex items-center gap-2 relative">
             {/* Kick button - appears on hover */}
             {canKick && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onInitiateKick?.(player.id)
-                }}
-                className={`absolute z-20 w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 hover:scale-110 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 text-lg ${position === 'left' ? '-left-6' : '-right-6'}`}
-                title={`Kick ${player.name}`}
-              >
-                💀
-              </button>
+              <div className={`absolute z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${position === 'left' ? '-left-7' : '-right-7'}`}>
+                <AnimatedSkull
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onInitiateKick?.(player.id)
+                  }}
+                />
+              </div>
             )}
             {position === 'left' && (
               <>
