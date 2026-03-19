@@ -1,6 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
+import { v4 as uuidv4 } from 'uuid'
 import { PokerCardDeck, FlyingCard } from './PokerCard'
 import { PokerTable } from './PokerTable'
 import { useGame } from '@/hooks/useGame'
@@ -47,7 +48,8 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     issues, 
     votes, 
     isLoading, 
-    error, 
+    error,
+    setError,
     refreshGame, 
     updateGameStatus: setStatus, 
     setVotes,
@@ -70,6 +72,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     initiateKick,
     rejectKick,
     pendingKick,
+    setPendingKick,
     wasKicked,
     setWasKicked,
   } = useGame(gameId, playerId, playerName || '')
@@ -701,7 +704,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     )
   }
 
-  if (error) {
+  if (error && !wasKicked) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <motion.div 
@@ -710,17 +713,104 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
           className="bg-surface rounded-lg border border-border elevation-medium p-8 max-w-md w-full text-center"
         >
           <div className="text-error text-lg mb-4">{error}</div>
-          {wasKicked && (
-            <button
-              onClick={() => {
-                setWasKicked(false)
-                setShowJoinModal(true)
-              }}
-              className="px-6 py-3 bg-primary hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
+        </motion.div>
+      </div>
+    )
+  }
+
+  // Kicked state - show delightful rejoin dialog
+  if (wasKicked) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+          className="bg-white rounded-2xl border-2 border-red-100 shadow-2xl p-10 max-w-md w-full text-center relative overflow-hidden"
+        >
+          {/* Animated background decoration */}
+          <motion.div
+            className="absolute -top-10 -right-10 w-32 h-32 bg-red-100 rounded-full opacity-50"
+            animate={{ 
+              scale: [1, 1.2, 1],
+              rotate: [0, 180, 360]
+            }}
+            transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+          />
+          <motion.div
+            className="absolute -bottom-8 -left-8 w-24 h-24 bg-orange-100 rounded-full opacity-50"
+            animate={{ 
+              scale: [1, 1.3, 1],
+            }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+          />
+          
+          {/* Animated skull icon */}
+          <motion.div
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
+            className="relative z-10 mb-6"
+          >
+            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center shadow-lg shadow-red-400/50">
+              <motion.span
+                animate={{ 
+                  rotate: [0, -10, 10, -10, 10, 0],
+                }}
+                transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 3 }}
+                className="text-4xl"
+              >
+                💀
+              </motion.span>
+            </div>
+          </motion.div>
+          
+          {/* Title */}
+          <motion.h2
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-2xl font-bold text-gray-800 mb-3 relative z-10"
+          >
+            You've been kicked!
+          </motion.h2>
+          
+          {/* Message */}
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="text-gray-600 mb-8 relative z-10"
+          >
+            Don't worry, you can rejoin the game anytime.
+          </motion.p>
+          
+          {/* Rejoin button with satisfying animation */}
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            whileHover={{ scale: 1.05, y: -2 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setWasKicked(false)
+              setError(null)
+              setPendingKick(null)
+              setShowJoinModal(true)
+              // Generate new player ID for rejoin
+              const newId = uuidv4()
+              syncPlayerId(newId)
+            }}
+            className="relative z-10 px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all duration-200 flex items-center justify-center gap-2 mx-auto"
+          >
+            <motion.span
+              animate={{ x: [0, 4, 0] }}
+              transition={{ duration: 1, repeat: Infinity, repeatDelay: 2 }}
             >
-              Rejoin Game
-            </button>
-          )}
+              →
+            </motion.span>
+            Rejoin Game
+          </motion.button>
         </motion.div>
       </div>
     )

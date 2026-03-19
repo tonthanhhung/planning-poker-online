@@ -36,6 +36,9 @@ interface UseGameActions {
   initiateKick: (targetPlayerId: string) => Promise<void>
   rejectKick: () => Promise<void>
   setWasKicked: (value: boolean) => void
+  setPendingKick: (value: { targetPlayerId: string; initiatorPlayerName: string; timeout: number } | null) => void
+  // Error handling
+  setError: (error: string | null) => void
 }
 
 interface UseGameSyncState {
@@ -607,6 +610,7 @@ export function useGame(
     currentPlayer,
     isLoading,
     error,
+    setError,
     refreshGame: loadGame,
     updateGameStatus,
     submitVote,
@@ -624,6 +628,7 @@ export function useGame(
     initiateKick,
     rejectKick,
     pendingKick,
+    setPendingKick,
     wasKicked,
     setWasKicked,
     // Gamification stats
