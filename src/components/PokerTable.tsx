@@ -563,7 +563,7 @@ export function PokerTable({
               <>
                 {/* Kick button - appears on hover, positioned below card */}
                 {canKick && (
-                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <AnimatedSkull
                       onClick={(e) => {
                         e.stopPropagation()
@@ -588,7 +588,7 @@ export function PokerTable({
                 {renderPlayerCard(player)}
                 {/* Kick button - appears on hover, positioned below card */}
                 {canKick && (
-                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <AnimatedSkull
                       onClick={(e) => {
                         e.stopPropagation()
@@ -639,7 +639,7 @@ export function PokerTable({
                   {renderPlayerCard(player)}
                   {/* Kick button - appears on hover, positioned below card */}
                   {canKick && (
-                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <AnimatedSkull
                         onClick={(e) => {
                           e.stopPropagation()
@@ -657,7 +657,7 @@ export function PokerTable({
                   {renderPlayerCard(player)}
                   {/* Kick button - appears on hover, positioned below card */}
                   {canKick && (
-                    <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <AnimatedSkull
                         onClick={(e) => {
                           e.stopPropagation()
