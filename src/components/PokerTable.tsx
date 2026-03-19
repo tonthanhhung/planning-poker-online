@@ -585,10 +585,9 @@ export function PokerTable({
             )}
             {position === 'bottom' && (
               <>
-                {renderPlayerCard(player)}
-                {/* Kick button - appears on hover, positioned below card */}
+                {/* Kick button - appears on hover, positioned ABOVE card for bottom players */}
                 {canKick && (
-                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <AnimatedSkull
                       onClick={(e) => {
                         e.stopPropagation()
@@ -597,6 +596,7 @@ export function PokerTable({
                     />
                   </div>
                 )}
+                {renderPlayerCard(player)}
               </>
             )}
           </div>
