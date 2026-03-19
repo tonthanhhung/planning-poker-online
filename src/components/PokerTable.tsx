@@ -560,21 +560,16 @@ export function PokerTable({
           <div className="flex flex-col items-center gap-1 relative">
             {/* Kick button - appears on hover */}
             {canKick && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileHover={{ scale: 1.1 }}
-                animate={{ opacity: 1 }}
+              <button
                 onClick={(e) => {
                   e.stopPropagation()
                   onInitiateKick?.(player.id)
                 }}
-                className="absolute -right-6 top-0 z-20 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute -right-6 top-0 z-20 w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 hover:scale-110 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 text-lg"
                 title={`Kick ${player.name}`}
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C8 2 5 5 5 9c0 2 1 3.5 2 4.5.5.5 1 1 1 1.5v2c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2c0-.5.5-1 1-1.5 1-1 2-2.5 2-4.5 0-4-3-7-7-7zM9 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm6 0c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm-3 2c-.6 0-1-.4-1-1h2c0 .6-.4 1-1 1zm-2 3h4v1H10z"/>
-                </svg>
-              </motion.button>
+                💀
+              </button>
             )}
             {position === 'top' && renderPlayerCard(player)}
             <span className={`text-xs font-semibold block text-center ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
@@ -612,21 +607,16 @@ export function PokerTable({
           <div className="flex items-center gap-2 relative">
             {/* Kick button - appears on hover */}
             {canKick && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileHover={{ scale: 1.1 }}
-                animate={{ opacity: 1 }}
+              <button
                 onClick={(e) => {
                   e.stopPropagation()
                   onInitiateKick?.(player.id)
                 }}
-                className={`absolute z-20 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity ${position === 'left' ? '-left-6' : '-right-6'}`}
+                className={`absolute z-20 w-8 h-8 flex items-center justify-center bg-red-500 hover:bg-red-600 hover:scale-110 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 text-lg ${position === 'left' ? '-left-6' : '-right-6'}`}
                 title={`Kick ${player.name}`}
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C8 2 5 5 5 9c0 2 1 3.5 2 4.5.5.5 1 1 1 1.5v2c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-2c0-.5.5-1 1-1.5 1-1 2-2.5 2-4.5 0-4-3-7-7-7zM9 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm6 0c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm-3 2c-.6 0-1-.4-1-1h2c0 .6-.4 1-1 1zm-2 3h4v1H10z"/>
-                </svg>
-              </motion.button>
+                💀
+              </button>
             )}
             {position === 'left' && (
               <>
