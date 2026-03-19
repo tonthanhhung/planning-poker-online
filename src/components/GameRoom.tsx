@@ -10,6 +10,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { QUESTION_CARD, COFFEE_CARD, type Vote, type PlayerStreakStats, type Issue } from '@/types'
 import { generateFunnyName } from '@/lib/funnyNames'
+import { KickNotification } from './KickNotification'
 import confetti from 'canvas-confetti'
 
 const LAST_GAME_ID_KEY = 'planning_poker_last_game_id'
@@ -65,6 +66,10 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     votesResetKey,
     // Sync state
     voteChangesAfterReveal,
+    // Kick functionality
+    initiateKick,
+    rejectKick,
+    pendingKick,
   } = useGame(gameId, playerId, playerName || '')
 
   const [isJoining, setIsJoining] = useState(false)
@@ -1146,6 +1151,8 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                   onResetVotes={handleResetVotes}
                   onNextIssue={handleNextIssue}
                   totalPlayers={players.length}
+                  onInitiateKick={initiateKick}
+                  pendingKick={pendingKick}
                 />
               </div>
 
@@ -1437,6 +1444,15 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
           </div>
         </div>
       </div>
+
+      {/* Kick Notification Modal */}
+      <KickNotification
+        isOpen={!!pendingKick}
+        initiatorName={pendingKick?.initiatorPlayerName || ''}
+        timeout={pendingKick?.timeout || 10000}
+        onReject={rejectKick}
+        onTimeout={() => {}}
+      />
     </div>
   )
 }

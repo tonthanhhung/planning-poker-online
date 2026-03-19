@@ -12,6 +12,12 @@ interface UseGameState {
   currentPlayer: Player | null
   isLoading: boolean
   error: string | null
+  // Kick state
+  pendingKick: {
+    targetPlayerId: string
+    initiatorPlayerName: string
+    timeout: number
+  } | null
 }
 
 interface UseGameActions {
@@ -24,6 +30,9 @@ interface UseGameActions {
   setCurrentIssue: (issueId: string | null) => Promise<void>
   resetVotes: (issueId: string) => Promise<void>
   setVotes: React.Dispatch<React.SetStateAction<Record<string, Vote[]>>>
+  // Kick functionality
+  initiateKick: (targetPlayerId: string) => Promise<void>
+  rejectKick: () => Promise<void>
 }
 
 interface UseGameSyncState {
@@ -87,6 +96,13 @@ export function useGame(
   const [error, setError] = useState<string | null>(null)
   const [votesResetKey, setVotesResetKey] = useState(0)
   const [voteChangesAfterReveal, setVoteChangesAfterReveal] = useState<Record<string, Set<string>>>({})
+  
+  // Kick state
+  const [pendingKick, setPendingKick] = useState<{
+    targetPlayerId: string
+    initiatorPlayerName: string
+    timeout: number
+  } | null>(null)
   
   // Track total revotes across all issues (incremented when votes are reset during voting)
   const [totalRevotes, setTotalRevotes] = useState(() => {
@@ -324,6 +340,54 @@ export function useGame(
       })
     }
 
+    // Kick initiated against current player
+    const handleKickInitiated = ({ targetPlayerId, initiatorPlayerName, timeout }: { 
+      targetPlayerId: string
+      initiatorPlayerId: string
+      initiatorPlayerName: string
+      timeout: number
+    }) => {
+      console.log('Kick initiated:', { targetPlayerId, initiatorPlayerName, timeout })
+      // Only show notification if this player is the target
+      if (targetPlayerId === playerId) {
+        setPendingKick({
+          targetPlayerId,
+          initiatorPlayerName,
+          timeout,
+        })
+      }
+    }
+
+    // Kick was rejected by target player
+    const handleKickRejected = ({ targetPlayerId }: { targetPlayerId: string; initiatorPlayerId: string; initiatorPlayerName: string }) => {
+      console.log('Kick rejected:', { targetPlayerId })
+      // Clear pending kick if it was for this player
+      if (pendingKick?.targetPlayerId === targetPlayerId) {
+        setPendingKick(null)
+      }
+    }
+
+    // Player was kicked
+    const handlePlayerKicked = ({ playerId: kickedPlayerId }: { playerId: string }) => {
+      console.log('Player kicked:', kickedPlayerId)
+      // If this player was kicked, redirect to home
+      if (kickedPlayerId === playerId) {
+        setError('You have been kicked from the game')
+        // Redirect after a short delay
+        setTimeout(() => {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/'
+          }
+        }, 2000)
+      }
+      // Remove player from local state
+      setPlayers(prev => prev.filter(p => p.id !== kickedPlayerId))
+      // Clear pending kick if it was for this player
+      if (pendingKick?.targetPlayerId === kickedPlayerId) {
+        setPendingKick(null)
+      }
+    }
+
     socket.on('game-updated', handleGameUpdated)
     socket.on('player-joined', handlePlayerJoined)
     socket.on('player-left', handlePlayerLeft)
@@ -334,6 +398,9 @@ export function useGame(
     socket.on('votes-updated', handleVotesUpdated)
     socket.on('votes-reset', handleVotesReset)
     socket.on('vote-changed-after-reveal', handleVoteChangedAfterReveal)
+    socket.on('kick-initiated', handleKickInitiated)
+    socket.on('kick-rejected', handleKickRejected)
+    socket.on('player-kicked', handlePlayerKicked)
 
     return () => {
       socket.off('game-updated', handleGameUpdated)
@@ -346,6 +413,9 @@ export function useGame(
       socket.off('votes-updated', handleVotesUpdated)
       socket.off('votes-reset', handleVotesReset)
       socket.off('vote-changed-after-reveal', handleVoteChangedAfterReveal)
+      socket.off('kick-initiated', handleKickInitiated)
+      socket.off('kick-rejected', handleKickRejected)
+      socket.off('player-kicked', handlePlayerKicked)
     }
   }, [socket])
 
@@ -452,6 +522,37 @@ export function useGame(
     },
     [gameId, socket, playerId, trackActivity]
   )
+
+  // Initiate kick vote on another player
+  const initiateKick = useCallback(
+    async (targetPlayerId: string) => {
+      if (!gameId || !socket || !playerId || !playerName) return
+
+      socket.emit(
+        'initiate-kick',
+        { gameId, targetPlayerId, initiatorPlayerId: playerId, initiatorPlayerName: playerName },
+        (response: any) => {
+          if (!response.success) {
+            console.error('Failed to initiate kick:', response.error)
+          }
+        }
+      )
+    },
+    [gameId, socket, playerId, playerName]
+  )
+
+  // Reject kick (called when current player clicks reject)
+  const rejectKick = useCallback(async () => {
+    if (!gameId || !socket || !pendingKick) return
+
+    socket.emit('reject-kick', { gameId, targetPlayerId: pendingKick.targetPlayerId }, (response: any) => {
+      if (response.success) {
+        setPendingKick(null)
+      } else {
+        console.error('Failed to reject kick:', response.error)
+      }
+    })
+  }, [gameId, socket, pendingKick])
   
   // Track issue stats when game status changes to revealed
   useEffect(() => {
@@ -518,6 +619,10 @@ export function useGame(
     isConnected,
     trackActivity,
     isTabActive,
+    // Kick functionality
+    initiateKick,
+    rejectKick,
+    pendingKick,
     // Gamification stats
     streakStats,
     topStreakLeaders,

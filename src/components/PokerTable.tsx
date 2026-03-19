@@ -40,6 +40,13 @@ interface PokerTableProps {
   onResetVotes?: () => void
   onNextIssue?: () => void
   totalPlayers?: number
+  // Kick functionality
+  onInitiateKick?: (targetPlayerId: string) => void
+  pendingKick?: {
+    targetPlayerId: string
+    initiatorPlayerName: string
+    timeout: number
+  } | null
 }
 
 // Floating-UI powered hover popover for emoji reactions
@@ -153,6 +160,8 @@ export function PokerTable({
   onResetVotes,
   onNextIssue,
   totalPlayers = 0,
+  onInitiateKick,
+  pendingKick,
 }: PokerTableProps) {
   const currentVotes = currentIssueId ? votes[currentIssueId] || [] : []
   const [flyingReactions, setFlyingReactions] = useState<FlyingEmoji[]>([])
@@ -535,19 +544,40 @@ export function PokerTable({
   const renderVerticalPlayer = (player: Player, position: 'top' | 'bottom') => {
     const isCurrentPlayer = player.name === currentPlayerName
     const isViewer = player.is_viewer
+    const currentPlayer = players.find(p => p.id === currentPlayerId)
+    const isFacilitator = currentPlayer?.is_facilitator ?? false
+    const canKick = !isCurrentPlayer && isFacilitator && onInitiateKick
 
     return (
       <motion.div
         key={player.id}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="flex flex-col items-center gap-1"
+        className="flex flex-col items-center gap-1 relative group"
       >
         <PlayerPopover
           placement={position === 'top' ? 'top' : 'bottom'}
           onReact={(emoji, isImage, imageUrl) => handleReact(emoji, player.id, isImage, imageUrl)}
         >
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-1 relative">
+            {/* Kick button - appears on hover */}
+            {canKick && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileHover={{ scale: 1.1 }}
+                animate={{ opacity: 1 }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onInitiateKick?.(player.id)
+                }}
+                className="absolute -right-6 top-0 z-20 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                title={`Kick ${player.name}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              </motion.button>
+            )}
             {position === 'top' && renderPlayerCard(player)}
             <span className={`text-xs font-semibold block text-center ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
               {player.name}
@@ -568,19 +598,40 @@ export function PokerTable({
   const renderHorizontalPlayer = (player: Player, position: 'left' | 'right') => {
     const isCurrentPlayer = player.name === currentPlayerName
     const isViewer = player.is_viewer
+    const currentPlayer = players.find(p => p.id === currentPlayerId)
+    const isFacilitator = currentPlayer?.is_facilitator ?? false
+    const canKick = !isCurrentPlayer && isFacilitator && onInitiateKick
 
     return (
       <motion.div
         key={player.id}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="flex items-center gap-2"
+        className="flex items-center gap-2 relative group"
       >
         <PlayerPopover
           placement={position}
           onReact={(emoji, isImage, imageUrl) => handleReact(emoji, player.id, isImage, imageUrl)}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
+            {/* Kick button - appears on hover */}
+            {canKick && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileHover={{ scale: 1.1 }}
+                animate={{ opacity: 1 }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onInitiateKick?.(player.id)
+                }}
+                className={`absolute z-20 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity ${position === 'left' ? '-left-6' : '-right-6'}`}
+                title={`Kick ${player.name}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              </motion.button>
+            )}
             {position === 'left' && (
               <>
                 <div className="flex flex-col items-end">
