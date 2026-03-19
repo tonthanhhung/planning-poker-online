@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface KickNotificationProps {
@@ -20,6 +20,20 @@ export function KickNotification({
 }: KickNotificationProps) {
   const [timeLeft, setTimeLeft] = useState(timeout / 1000)
   const [progress, setProgress] = useState(100)
+  const isMountedRef = useRef(true)
+  const onTimeoutRef = useRef(onTimeout)
+
+  // Keep onTimeout callback up to date in ref to avoid resetting timer
+  useEffect(() => {
+    onTimeoutRef.current = onTimeout
+  }, [onTimeout])
+
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!isOpen) {
@@ -37,11 +51,17 @@ export function KickNotification({
       const secondsLeft = Math.ceil(remaining / 1000)
       const progressPercent = (remaining / timeout) * 100
 
-      setTimeLeft(secondsLeft)
-      setProgress(progressPercent)
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setTimeLeft(secondsLeft)
+        setProgress(progressPercent)
+      }
 
       if (remaining <= 0) {
-        onTimeout()
+        // Only call callback if component is still mounted
+        if (isMountedRef.current) {
+          onTimeoutRef.current()
+        }
       } else {
         requestAnimationFrame(updateTimer)
       }
@@ -52,7 +72,7 @@ export function KickNotification({
     return () => {
       cancelAnimationFrame(animationFrame)
     }
-  }, [isOpen, timeout, onTimeout])
+  }, [isOpen, timeout])
 
   const handleReject = useCallback(() => {
     onReject()

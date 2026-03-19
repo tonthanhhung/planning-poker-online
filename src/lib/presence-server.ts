@@ -391,9 +391,44 @@ export class PresenceServer {
       // Initiate kick vote on another player
       socket.on('initiate-kick', async ({ gameId, targetPlayerId, initiatorPlayerId, initiatorPlayerName }, callback) => {
         try {
+          // Validate initiator is not targeting themselves
+          if (initiatorPlayerId === targetPlayerId) {
+            callback({ success: false, error: 'You cannot kick yourself' })
+            return
+          }
+
           // Check if there's already a pending kick for this player
           if (this.pendingKicks.has(targetPlayerId)) {
             callback({ success: false, error: 'Kick already pending for this player' })
+            return
+          }
+
+          // Fetch game to validate players
+          const gameData = await getGame(gameId)
+          if (!gameData) {
+            callback({ success: false, error: 'Game not found' })
+            return
+          }
+
+          const { players } = gameData
+
+          // Check both players exist in this game
+          const initiator = players.find((p: Player) => p.id === initiatorPlayerId)
+          const target = players.find((p: Player) => p.id === targetPlayerId)
+
+          if (!initiator) {
+            callback({ success: false, error: 'You are not a player in this game' })
+            return
+          }
+
+          if (!target) {
+            callback({ success: false, error: 'Target player not found' })
+            return
+          }
+
+          // Only facilitators can initiate kicks
+          if (!initiator.is_facilitator) {
+            callback({ success: false, error: 'Only facilitators can initiate kicks' })
             return
           }
 
@@ -536,12 +571,49 @@ export class PresenceServer {
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id)
         
-        // Find and mark player as offline
+        // Find the disconnected player's ID
+        let disconnectedPlayerId: string | null = null
+        let disconnectedGameId: string | null = null
+        
         for (const [playerId, presence] of this.presence.entries()) {
           if (presence.lastPing < Date.now() - this.OFFLINE_THRESHOLD) {
+            disconnectedPlayerId = playerId
+            disconnectedGameId = presence.gameId
             presence.isOnline = false
             this.presence.set(playerId, presence)
             this.broadcastPresence(presence.gameId)
+          }
+        }
+        
+        // Clear any pending kicks involving the disconnected player
+        if (disconnectedPlayerId) {
+          // Clear pending kick where this player is the target
+          const pendingKickAsTarget = this.pendingKicks.get(disconnectedPlayerId)
+          if (pendingKickAsTarget) {
+            clearTimeout(pendingKickAsTarget.timeoutId)
+            this.pendingKicks.delete(disconnectedPlayerId)
+            console.log(`Cleared pending kick for disconnected player ${disconnectedPlayerId}`)
+            
+            // Notify other players that kick was cancelled due to disconnect
+            this.io?.to(pendingKickAsTarget.gameId).emit('kick-cancelled', {
+              targetPlayerId: disconnectedPlayerId,
+              reason: 'disconnected'
+            })
+          }
+          
+          // Clear pending kicks where this player is the initiator
+          for (const [targetId, kick] of this.pendingKicks.entries()) {
+            if (kick.initiatorPlayerId === disconnectedPlayerId) {
+              clearTimeout(kick.timeoutId)
+              this.pendingKicks.delete(targetId)
+              console.log(`Cleared kick initiated by disconnected player ${disconnectedPlayerId}`)
+              
+              // Notify other players that kick was cancelled
+              this.io?.to(kick.gameId).emit('kick-cancelled', {
+                targetPlayerId: targetId,
+                reason: 'initiator_disconnected'
+              })
+            }
           }
         }
       })
@@ -570,7 +642,14 @@ export class PresenceServer {
 
   private async executeKick(gameId: string, targetPlayerId: string) {
     try {
-      // Remove from pending kicks
+      // Verify kick is still pending (wasn't rejected or cancelled)
+      const pendingKick = this.pendingKicks.get(targetPlayerId)
+      if (!pendingKick) {
+        console.log(`Kick for ${targetPlayerId} was already cancelled, skipping execution`)
+        return
+      }
+
+      // Remove from pending kicks FIRST to prevent race conditions
       this.pendingKicks.delete(targetPlayerId)
 
       // Remove player from database
@@ -586,6 +665,11 @@ export class PresenceServer {
       console.log(`Player ${targetPlayerId} kicked from game ${gameId}`)
     } catch (error) {
       console.error(`Failed to execute kick for player ${targetPlayerId}:`, error)
+      // Notify clients that kick failed
+      this.io?.to(gameId).emit('kick-failed', { 
+        targetPlayerId, 
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
     }
   }
 
