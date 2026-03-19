@@ -32,10 +32,11 @@ export async function createGame(name: string, createdBy: string): Promise<Game>
 }
 
 // Helper function to join a game
+// First player automatically becomes facilitator (is_facilitator = true)
 export async function joinGame(gameId: string, playerName: string, isViewer: boolean = false): Promise<Player> {
   const result = await getPool().query(
     `INSERT INTO players (game_id, name, is_facilitator, is_viewer) 
-     VALUES ($1, $2, false, $3)
+     VALUES ($1, $2, NOT EXISTS (SELECT 1 FROM players WHERE game_id = $1), $3)
      RETURNING *`,
     [gameId, playerName, isViewer]
   )
