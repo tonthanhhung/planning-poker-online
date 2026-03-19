@@ -31,7 +31,7 @@ export function AnimatedSkull({ onClick, className = '' }: AnimatedSkullProps) {
     })
   }, [])
 
-  // Calculate eye positions with limited movement range
+  // Calculate positions with limited movement range
   const eyeOffsetX = mousePos.x * 3
   const eyeOffsetY = mousePos.y * 2
 
@@ -52,13 +52,12 @@ export function AnimatedSkull({ onClick, className = '' }: AnimatedSkullProps) {
         animate={{ scale: isHovered ? 1.15 : 1 }}
         transition={{ type: 'spring', stiffness: 400, damping: 20 }}
       >
-        {/* Skull base - 2.5D effect with gradient */}
+        {/* Skull base - static head with 2.5D effect */}
         <svg
           viewBox="0 0 32 32"
-          className="w-full h-full drop-shadow-lg"
+          className="w-full h-full"
           style={{ filter: 'drop-shadow(2px 2px 3px rgba(0,0,0,0.3))' }}
         >
-          {/* Skull head with gradient for 3D effect */}
           <defs>
             <radialGradient id="skullGradient" cx="30%" cy="30%" r="70%">
               <stop offset="0%" stopColor="#fef3f2" />
@@ -69,35 +68,20 @@ export function AnimatedSkull({ onClick, className = '' }: AnimatedSkullProps) {
               <stop offset="0%" stopColor="rgba(255,255,255,0.3)" />
               <stop offset="100%" stopColor="rgba(0,0,0,0.2)" />
             </linearGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
-              <feMerge>
-                <feMergeNode in="coloredBlur"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
+            <radialGradient id="eyeSocket" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#7f1d1d" />
+              <stop offset="70%" stopColor="#dc2626" />
+              <stop offset="100%" stopColor="#991b1b" />
+            </radialGradient>
           </defs>
           
-          {/* Main skull shape */}
+          {/* Main skull head shape - static */}
           <ellipse cx="16" cy="14" rx="11" ry="10" fill="url(#skullGradient)" />
-          
-          {/* 3D shading overlay */}
           <ellipse cx="16" cy="14" rx="11" ry="10" fill="url(#skullShadow)" opacity="0.6" />
-          
-          {/* Highlight for 3D effect */}
           <ellipse cx="12" cy="10" rx="4" ry="3" fill="rgba(255,255,255,0.6)" opacity="0.5" />
-          
-          {/* Jaw */}
-          <rect x="11" y="20" width="10" height="6" rx="2" fill="url(#skullGradient)" />
-          <rect x="11" y="20" width="10" height="6" rx="2" fill="url(#skullShadow)" opacity="0.4" />
-          
-          {/* Teeth lines */}
-          <line x1="13" y1="22" x2="13" y2="25" stroke="#dc2626" strokeWidth="1" opacity="0.5" />
-          <line x1="16" y1="22" x2="16" y2="25" stroke="#dc2626" strokeWidth="1" opacity="0.5" />
-          <line x1="19" y1="22" x2="19" y2="25" stroke="#dc2626" strokeWidth="1" opacity="0.5" />
         </svg>
         
-        {/* Eyes - separate elements for animation */}
+        {/* Animated face - eyes, nose, jaw all move together */}
         <motion.div
           className="absolute inset-0 pointer-events-none"
           animate={{
@@ -107,29 +91,27 @@ export function AnimatedSkull({ onClick, className = '' }: AnimatedSkullProps) {
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
         >
           <svg viewBox="0 0 32 32" className="w-full h-full">
-            {/* Left eye socket with depth */}
-            <defs>
-              <radialGradient id="eyeSocket" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#7f1d1d" />
-                <stop offset="70%" stopColor="#dc2626" />
-                <stop offset="100%" stopColor="#991b1b" />
-              </radialGradient>
-            </defs>
-            
             {/* Left eye */}
             <ellipse cx="12" cy="14" rx="3.5" ry="3" fill="url(#eyeSocket)" />
             <ellipse cx="12" cy="14" rx="2.5" ry="2" fill="#1a1a1a" />
-            {/* Eye highlight */}
             <circle cx="13" cy="13" r="0.8" fill="rgba(255,255,255,0.4)" />
             
             {/* Right eye */}
             <ellipse cx="20" cy="14" rx="3.5" ry="3" fill="url(#eyeSocket)" />
             <ellipse cx="20" cy="14" rx="2.5" ry="2" fill="#1a1a1a" />
-            {/* Eye highlight */}
             <circle cx="21" cy="13" r="0.8" fill="rgba(255,255,255,0.4)" />
             
-            {/* Nose */}
+            {/* Nose - follows eyes */}
             <path d="M15 18 L16 20 L17 18 Z" fill="#dc2626" opacity="0.8" />
+            
+            {/* Jaw - now moves with the face! */}
+            <rect x="11" y="20" width="10" height="6" rx="2" fill="url(#skullGradient)" />
+            <rect x="11" y="20" width="10" height="6" rx="2" fill="url(#skullShadow)" opacity="0.4" />
+            
+            {/* Teeth lines */}
+            <line x1="13" y1="22" x2="13" y2="25" stroke="#dc2626" strokeWidth="1" opacity="0.5" />
+            <line x1="16" y1="22" x2="16" y2="25" stroke="#dc2626" strokeWidth="1" opacity="0.5" />
+            <line x1="19" y1="22" x2="19" y2="25" stroke="#dc2626" strokeWidth="1" opacity="0.5" />
           </svg>
         </motion.div>
         

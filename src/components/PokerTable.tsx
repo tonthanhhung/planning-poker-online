@@ -559,18 +559,22 @@ export function PokerTable({
           onReact={(emoji, isImage, imageUrl) => handleReact(emoji, player.id, isImage, imageUrl)}
         >
           <div className="flex flex-col items-center gap-1 relative">
-            {/* Kick button - appears on hover */}
-            {canKick && (
-              <div className="absolute -right-7 top-0 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <AnimatedSkull
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onInitiateKick?.(player.id)
-                  }}
-                />
-              </div>
+            {position === 'top' && (
+              <>
+                {/* Kick button - appears on hover, positioned below card */}
+                {canKick && (
+                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <AnimatedSkull
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onInitiateKick?.(player.id)
+                      }}
+                    />
+                  </div>
+                )}
+                {renderPlayerCard(player)}
+              </>
             )}
-            {position === 'top' && renderPlayerCard(player)}
             <span className={`text-xs font-semibold block text-center ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
               {player.name}
             </span>
@@ -579,7 +583,22 @@ export function PokerTable({
                 Viewer
               </span>
             )}
-            {position === 'bottom' && renderPlayerCard(player)}
+            {position === 'bottom' && (
+              <>
+                {renderPlayerCard(player)}
+                {/* Kick button - appears on hover, positioned below card */}
+                {canKick && (
+                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <AnimatedSkull
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onInitiateKick?.(player.id)
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </PlayerPopover>
       </motion.div>
@@ -604,17 +623,6 @@ export function PokerTable({
           onReact={(emoji, isImage, imageUrl) => handleReact(emoji, player.id, isImage, imageUrl)}
         >
           <div className="flex items-center gap-2 relative">
-            {/* Kick button - appears on hover */}
-            {canKick && (
-              <div className={`absolute z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${position === 'left' ? '-left-7' : '-right-7'}`}>
-                <AnimatedSkull
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onInitiateKick?.(player.id)
-                  }}
-                />
-              </div>
-            )}
             {position === 'left' && (
               <>
                 <div className="flex flex-col items-end">
@@ -627,12 +635,38 @@ export function PokerTable({
                     </span>
                   )}
                 </div>
-                {renderPlayerCard(player)}
+                <div className="relative">
+                  {renderPlayerCard(player)}
+                  {/* Kick button - appears on hover, positioned below card */}
+                  {canKick && (
+                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <AnimatedSkull
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onInitiateKick?.(player.id)
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </>
             )}
             {position === 'right' && (
               <>
-                {renderPlayerCard(player)}
+                <div className="relative">
+                  {renderPlayerCard(player)}
+                  {/* Kick button - appears on hover, positioned below card */}
+                  {canKick && (
+                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <AnimatedSkull
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onInitiateKick?.(player.id)
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-col items-start">
                   <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
                     {player.name}

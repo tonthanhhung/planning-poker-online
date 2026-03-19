@@ -18,6 +18,8 @@ interface UseGameState {
     initiatorPlayerName: string
     timeout: number
   } | null
+  // Kicked state
+  wasKicked: boolean
 }
 
 interface UseGameActions {
@@ -33,6 +35,10 @@ interface UseGameActions {
   // Kick functionality
   initiateKick: (targetPlayerId: string) => Promise<void>
   rejectKick: () => Promise<void>
+  setWasKicked: (value: boolean) => void
+  setPendingKick: (value: { targetPlayerId: string; initiatorPlayerName: string; timeout: number } | null) => void
+  // Error handling
+  setError: (error: string | null) => void
 }
 
 interface UseGameSyncState {
@@ -103,6 +109,9 @@ export function useGame(
     initiatorPlayerName: string
     timeout: number
   } | null>(null)
+  
+  // Kicked state - track if current player was kicked
+  const [wasKicked, setWasKicked] = useState(false)
   
   // Track total revotes across all issues (incremented when votes are reset during voting)
   const [totalRevotes, setTotalRevotes] = useState(() => {
@@ -370,15 +379,10 @@ export function useGame(
     // Player was kicked
     const handlePlayerKicked = ({ playerId: kickedPlayerId }: { playerId: string }) => {
       console.log('Player kicked:', kickedPlayerId)
-      // If this player was kicked, redirect to home
+      // If this player was kicked, show kicked state with rejoin option
       if (kickedPlayerId === playerId) {
-        setError('You have been kicked from the game')
-        // Redirect after a short delay
-        setTimeout(() => {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/'
-          }
-        }, 2000)
+        setWasKicked(true)
+        setError('You have been kicked from the game. Click "Rejoin" to come back.')
       }
       // Remove player from local state
       setPlayers(prev => prev.filter(p => p.id !== kickedPlayerId))
@@ -417,7 +421,7 @@ export function useGame(
       socket.off('kick-rejected', handleKickRejected)
       socket.off('player-kicked', handlePlayerKicked)
     }
-  }, [socket])
+  }, [socket, playerId, pendingKick])
 
   // Update game status
   const updateGameStatus = useCallback(
@@ -606,6 +610,7 @@ export function useGame(
     currentPlayer,
     isLoading,
     error,
+    setError,
     refreshGame: loadGame,
     updateGameStatus,
     submitVote,
@@ -623,6 +628,9 @@ export function useGame(
     initiateKick,
     rejectKick,
     pendingKick,
+    setPendingKick,
+    wasKicked,
+    setWasKicked,
     // Gamification stats
     streakStats,
     topStreakLeaders,
