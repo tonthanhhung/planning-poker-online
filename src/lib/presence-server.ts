@@ -31,11 +31,24 @@ export interface PlayerPresence {
 // Game cleanup threshold: 30 days of inactivity
 const GAME_CLEANUP_THRESHOLD = 30 * 24 * 60 * 60 * 1000
 
+// Kick timeout: 10 seconds
+const KICK_TIMEOUT = 10 * 1000
+
+interface PendingKick {
+  targetPlayerId: string
+  initiatorPlayerId: string
+  initiatorPlayerName: string
+  gameId: string
+  timeoutId: NodeJS.Timeout
+}
+
 export class PresenceServer {
   private io: SocketIOServer | null = null
   private presence: Map<string, PlayerPresence> = new Map()
   // Track last activity time per game (in-memory only, persists during server lifetime)
   private gameActivity: Map<string, number> = new Map()
+  // Track pending kicks (targetPlayerId -> PendingKick)
+  private pendingKicks: Map<string, PendingKick> = new Map()
   // No more periodic check interval - allows server to auto-suspend when idle
   private readonly OFFLINE_THRESHOLD = 60000 // 60 seconds - longer threshold allows auto-suspend
 
@@ -375,6 +388,76 @@ export class PresenceServer {
         }
       })
 
+      // Initiate kick vote on another player
+      socket.on('initiate-kick', async ({ gameId, targetPlayerId, initiatorPlayerId, initiatorPlayerName }, callback) => {
+        try {
+          // Check if there's already a pending kick for this player
+          if (this.pendingKicks.has(targetPlayerId)) {
+            callback({ success: false, error: 'Kick already pending for this player' })
+            return
+          }
+
+          console.log(`Player ${initiatorPlayerName} initiated kick on player ${targetPlayerId} in game ${gameId}`)
+
+          // Set up timeout to auto-kick if not rejected
+          const timeoutId = setTimeout(async () => {
+            console.log(`Kick timeout reached for player ${targetPlayerId}, removing...`)
+            await this.executeKick(gameId, targetPlayerId)
+          }, KICK_TIMEOUT)
+
+          // Store pending kick
+          this.pendingKicks.set(targetPlayerId, {
+            targetPlayerId,
+            initiatorPlayerId,
+            initiatorPlayerName,
+            gameId,
+            timeoutId
+          })
+
+          // Notify the target player
+          this.io?.to(gameId).emit('kick-initiated', {
+            targetPlayerId,
+            initiatorPlayerId,
+            initiatorPlayerName,
+            timeout: KICK_TIMEOUT
+          })
+
+          callback({ success: true })
+        } catch (error) {
+          console.error('Failed to initiate kick:', error)
+          callback({ success: false, error: error instanceof Error ? error.message : 'Unknown error' })
+        }
+      })
+
+      // Reject kick (target player clicks reject)
+      socket.on('reject-kick', async ({ gameId, targetPlayerId }, callback) => {
+        try {
+          const pendingKick = this.pendingKicks.get(targetPlayerId)
+          if (!pendingKick) {
+            callback({ success: false, error: 'No pending kick found' })
+            return
+          }
+
+          // Clear the timeout
+          clearTimeout(pendingKick.timeoutId)
+          this.pendingKicks.delete(targetPlayerId)
+
+          console.log(`Player ${targetPlayerId} rejected kick in game ${gameId}`)
+
+          // Notify all players that kick was rejected
+          this.io?.to(gameId).emit('kick-rejected', {
+            targetPlayerId,
+            initiatorPlayerId: pendingKick.initiatorPlayerId,
+            initiatorPlayerName: pendingKick.initiatorPlayerName
+          })
+
+          callback({ success: true })
+        } catch (error) {
+          console.error('Failed to reject kick:', error)
+          callback({ success: false, error: error instanceof Error ? error.message : 'Unknown error' })
+        }
+      })
+
       // Update player name
       socket.on('update-player-name', async ({ playerId, newName }, callback) => {
         try {
@@ -482,6 +565,27 @@ export class PresenceServer {
         this.broadcastPresence(presence.gameId)
         console.log(`Player ${presence.playerName} marked as offline`)
       }
+    }
+  }
+
+  private async executeKick(gameId: string, targetPlayerId: string) {
+    try {
+      // Remove from pending kicks
+      this.pendingKicks.delete(targetPlayerId)
+
+      // Remove player from database
+      await removePlayer(targetPlayerId)
+      
+      // Remove from presence
+      this.presence.delete(targetPlayerId)
+      this.broadcastPresence(gameId)
+      
+      // Notify all clients that player was kicked
+      this.io?.to(gameId).emit('player-kicked', { playerId: targetPlayerId })
+      
+      console.log(`Player ${targetPlayerId} kicked from game ${gameId}`)
+    } catch (error) {
+      console.error(`Failed to execute kick for player ${targetPlayerId}:`, error)
     }
   }
 
