@@ -572,7 +572,7 @@ export function PokerTable({
                 title={`Kick ${player.name}`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2c-4 0-7 3-7 7 0 1.5.5 3 1.5 4 .5.5 1 1 1 2v2c0 1.1.9 2 2 2h5c1.1 0 2-.9 2-2v-2c0-1 .5-1.5 1-2 1-1 1.5-2.5 1.5-4 0-4-3-7-7-7zM9 19h6M10 22h4" />
                 </svg>
               </motion.button>
             )}
@@ -624,7 +624,7 @@ export function PokerTable({
                 title={`Kick ${player.name}`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2c-4 0-7 3-7 7 0 1.5.5 3 1.5 4 .5.5 1 1 1 2v2c0 1.1.9 2 2 2h5c1.1 0 2-.9 2-2v-2c0-1 .5-1.5 1-2 1-1 1.5-2.5 1.5-4 0-4-3-7-7-7zM9 19h6M10 22h4" />
                 </svg>
               </motion.button>
             )}
