@@ -70,6 +70,8 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     initiateKick,
     rejectKick,
     pendingKick,
+    wasKicked,
+    setWasKicked,
   } = useGame(gameId, playerId, playerName || '')
 
   const [isJoining, setIsJoining] = useState(false)
@@ -84,12 +86,14 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
   const [joinNameInput, setJoinNameInput] = useState('')
   const [selectedRole, setSelectedRole] = useState<'player' | 'viewer'>('player')
   
-  // Generate default name for join modal
+  // Generate default name for join modal - use stored name or generate funny name
   useEffect(() => {
     if (isInitialized && !joinNameInput && !currentPlayer) {
-      setJoinNameInput(generateFunnyName())
+      // Use stored player name if available, otherwise generate funny name
+      const storedName = playerName || generateFunnyName()
+      setJoinNameInput(storedName)
     }
-  }, [isInitialized, currentPlayer])
+  }, [isInitialized, currentPlayer, playerName])
 
   // Update showJoinModal when currentPlayer changes
   useEffect(() => {
@@ -699,8 +703,25 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-error text-lg">{error}</div>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-surface rounded-lg border border-border elevation-medium p-8 max-w-md w-full text-center"
+        >
+          <div className="text-error text-lg mb-4">{error}</div>
+          {wasKicked && (
+            <button
+              onClick={() => {
+                setWasKicked(false)
+                setShowJoinModal(true)
+              }}
+              className="px-6 py-3 bg-primary hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
+            >
+              Rejoin Game
+            </button>
+          )}
+        </motion.div>
       </div>
     )
   }

@@ -56,10 +56,12 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
   const [showJoinModal, setShowJoinModal] = useState(!playerName)
   const [joinNameInput, setJoinNameInput] = useState('')
   
-  // Generate default name
+  // Generate default name - use stored name or generate funny name
   useEffect(() => {
     if (isInitialized && !joinNameInput && !playerName) {
-      setJoinNameInput(generateFunnyName())
+      // Use stored player name if available, otherwise generate funny name
+      const storedName = playerName || generateFunnyName()
+      setJoinNameInput(storedName)
     }
   }, [isInitialized, playerName])
 
