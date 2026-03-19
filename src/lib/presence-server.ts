@@ -426,12 +426,6 @@ export class PresenceServer {
             return
           }
 
-          // Only facilitators can initiate kicks
-          if (!initiator.is_facilitator) {
-            callback({ success: false, error: 'Only facilitators can initiate kicks' })
-            return
-          }
-
           console.log(`Player ${initiatorPlayerName} initiated kick on player ${targetPlayerId} in game ${gameId}`)
 
           // Set up timeout to auto-kick if not rejected

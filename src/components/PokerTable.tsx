@@ -544,9 +544,7 @@ export function PokerTable({
   const renderVerticalPlayer = (player: Player, position: 'top' | 'bottom') => {
     const isCurrentPlayer = player.name === currentPlayerName
     const isViewer = player.is_viewer
-    const currentPlayer = players.find(p => p.id === currentPlayerId)
-    const isFacilitator = currentPlayer?.is_facilitator ?? false
-    const canKick = !isCurrentPlayer && isFacilitator && onInitiateKick
+    const canKick = !isCurrentPlayer && onInitiateKick
 
     return (
       <motion.div
@@ -598,9 +596,7 @@ export function PokerTable({
   const renderHorizontalPlayer = (player: Player, position: 'left' | 'right') => {
     const isCurrentPlayer = player.name === currentPlayerName
     const isViewer = player.is_viewer
-    const currentPlayer = players.find(p => p.id === currentPlayerId)
-    const isFacilitator = currentPlayer?.is_facilitator ?? false
-    const canKick = !isCurrentPlayer && isFacilitator && onInitiateKick
+    const canKick = !isCurrentPlayer && onInitiateKick
 
     return (
       <motion.div
