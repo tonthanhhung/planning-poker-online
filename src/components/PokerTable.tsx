@@ -610,7 +610,7 @@ export function PokerTable({
     )
   }
 
-  // Left/Right players
+  // Left/Right players - cards aligned vertically
   const renderHorizontalPlayer = (player: Player, position: 'left' | 'right') => {
     const isCurrentPlayer = player.name === currentPlayerName
     const isViewer = player.is_viewer
@@ -621,70 +621,73 @@ export function PokerTable({
         key={player.id}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="flex items-center gap-2 relative group"
+        className="flex items-center relative group"
+        style={{ minHeight: '70px' }} // Fixed height for consistent spacing
       >
         <PlayerPopover
           placement={position}
           onReact={(emoji, isImage, imageUrl) => handleReact(emoji, player.id, isImage, imageUrl)}
         >
-          <div className="flex items-center gap-2 relative">
-            {position === 'left' && (
-              <>
-                <div className="flex flex-col items-end">
-                  <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
-                    {player.name}
+          {position === 'left' && (
+            <div className="flex items-center gap-2">
+              {/* Name on left, aligned to the right edge */}
+              <div className="flex flex-col items-end min-w-[100px]">
+                <span className={`text-xs font-semibold text-right ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
+                  {player.name}
+                </span>
+                {isViewer && (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">
+                    Viewer
                   </span>
-                  {isViewer && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">
-                      Viewer
-                    </span>
-                  )}
-                </div>
-                <div className="relative">
-                  {renderPlayerCard(player)}
-                  {/* Kick button - appears on hover, positioned below card */}
-                  {canKick && (
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <AnimatedSkull
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onInitiateKick?.(player.id)
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-            {position === 'right' && (
-              <>
-                <div className="relative">
-                  {renderPlayerCard(player)}
-                  {/* Kick button - appears on hover, positioned below card */}
-                  {canKick && (
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <AnimatedSkull
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onInitiateKick?.(player.id)
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
-                    {player.name}
+                )}
+              </div>
+              {/* Card - aligned with other cards */}
+              <div className="relative w-[46px]">
+                {renderPlayerCard(player)}
+                {/* Kick button - appears on hover, positioned below card */}
+                {canKick && (
+                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <AnimatedSkull
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onInitiateKick?.(player.id)
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {position === 'right' && (
+            <div className="flex items-center gap-2">
+              {/* Card - aligned with other cards */}
+              <div className="relative w-[46px]">
+                {renderPlayerCard(player)}
+                {/* Kick button - appears on hover, positioned below card */}
+                {canKick && (
+                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <AnimatedSkull
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onInitiateKick?.(player.id)
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              {/* Name on right, aligned to the left edge */}
+              <div className="flex flex-col items-start min-w-[100px]">
+                <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
+                  {player.name}
+                </span>
+                {isViewer && (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">
+                    Viewer
                   </span>
-                  {isViewer && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">
-                      Viewer
-                    </span>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+                )}
+              </div>
+            </div>
+          )}
         </PlayerPopover>
       </motion.div>
     )
