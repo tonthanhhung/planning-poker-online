@@ -561,9 +561,9 @@ export function PokerTable({
           <div className="flex flex-col items-center gap-1 relative">
             {position === 'top' && (
               <>
-                {/* Kick button - appears on hover, positioned below card */}
+                {/* Kick button - appears on hover, positioned ABOVE card */}
                 {canKick && (
-                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <AnimatedSkull
                       onClick={(e) => {
                         e.stopPropagation()
