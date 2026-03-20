@@ -601,7 +601,7 @@ export function PokerTable({
         key={player.id}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={`flex flex-col items-center gap-1 relative group ${position === 'left' ? 'items-end' : 'items-start'}`}
+        className={`relative group ${position === 'left' ? 'self-end' : 'self-start'}`}
       >
         <PlayerPopover
           placement="top"
@@ -620,7 +620,7 @@ export function PokerTable({
                 />
               </div>
             )}
-            <span className={`text-xs font-semibold block text-center ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
+            <span className={`text-xs font-semibold text-center ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
               {player.name}
             </span>
             {isViewer && (
