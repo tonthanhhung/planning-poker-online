@@ -601,7 +601,7 @@ export function PokerTable({
         key={player.id}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={`relative group ${position === 'left' ? 'self-end' : 'self-start'}`}
+        className={`relative group w-full ${position === 'left' ? 'flex justify-end' : 'flex justify-start'}`}
       >
         <PlayerPopover
           placement="top"
