@@ -708,9 +708,9 @@ export function PokerTable({
         {/* Grid layout: left side | center (top/table/bottom) | right side */}
         <div className="flex items-center justify-center gap-2 sm:gap-4">
           
-          {/* Left column - vertical stack, right-aligned */}
+          {/* Left column - fixed width, right-aligned content */}
           {leftPlayers.length > 0 && (
-            <div className="hidden sm:flex flex-col justify-center gap-4 items-end">
+            <div className="hidden sm:flex flex-col justify-center gap-4 w-[100px] items-end">
               {leftPlayers.map(p => renderHorizontalPlayer(p, 'left'))}
             </div>
           )}
@@ -786,9 +786,9 @@ export function PokerTable({
             </div>
           </div>
 
-          {/* Right column - vertical stack, left-aligned */}
+          {/* Right column - fixed width, left-aligned content */}
           {rightPlayers.length > 0 && (
-            <div className="hidden sm:flex flex-col justify-center gap-4 items-start">
+            <div className="hidden sm:flex flex-col justify-center gap-4 w-[100px] items-start">
               {rightPlayers.map(p => renderHorizontalPlayer(p, 'right'))}
             </div>
           )}
