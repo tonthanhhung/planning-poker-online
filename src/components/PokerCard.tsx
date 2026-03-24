@@ -274,6 +274,7 @@ export function PokerCardDeck({
           <PokerCard
             value={value}
             isSelected={selectedValue === value && animatingCard !== value}
+            isRevealed={true}
             onClick={() => handleClick(value)}
             disabled={disabled || animatingCard !== null}
             size="md"
@@ -287,6 +288,7 @@ export function PokerCardDeck({
         <PokerCard
           value={QUESTION_CARD}
           isSelected={selectedValue === QUESTION_CARD && animatingCard !== QUESTION_CARD}
+          isRevealed={true}
           onClick={() => handleClick(QUESTION_CARD)}
           disabled={disabled || animatingCard !== null}
           size="md"
@@ -299,6 +301,7 @@ export function PokerCardDeck({
         <PokerCard
           value={COFFEE_CARD}
           isSelected={selectedValue === COFFEE_CARD && animatingCard !== COFFEE_CARD}
+          isRevealed={true}
           onClick={() => handleClick(COFFEE_CARD)}
           disabled={disabled || animatingCard !== null}
           size="md"
