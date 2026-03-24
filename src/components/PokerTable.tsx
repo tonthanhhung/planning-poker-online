@@ -349,10 +349,15 @@ export function PokerTable({
     }
   }, [currentVotes])
 
-  // Split players into sections - all centered around the table
-  // No side players, everything is centered
-  const topPlayers = players.slice(0, 5)
-  const bottomPlayers = players.slice(5, 10).reverse()
+  // Split players into sections with left/right sides for better capacity
+  // Layout: 5 top + 5 bottom + 3 left + 3 right = up to 16 players max
+  const maxTopBottom = 5
+  const maxSide = 3
+  
+  const topPlayers = players.slice(0, maxTopBottom)
+  const bottomPlayers = players.slice(maxTopBottom, maxTopBottom * 2).reverse()
+  const leftPlayers = players.slice(maxTopBottom * 2, maxTopBottom * 2 + maxSide)
+  const rightPlayers = players.slice(maxTopBottom * 2 + maxSide, maxTopBottom * 2 + maxSide * 2)
 
   // Track recently placed cards for animation (within last 3 seconds)
   // Stores { playerId: { timestamp, value } }
@@ -555,25 +560,21 @@ export function PokerTable({
         className="flex flex-col items-center gap-1 relative group"
       >
         <PlayerPopover
-          placement={position === 'top' ? 'top' : 'bottom'}
+          placement="top"
           onReact={(emoji, isImage, imageUrl) => handleReact(emoji, player.id, isImage, imageUrl)}
         >
           <div className="flex flex-col items-center gap-1 relative">
-            {position === 'top' && (
-              <>
-                {renderPlayerCard(player)}
-                {/* Kick button - appears on hover, positioned BELOW card (opposite from emoji) */}
-                {canKick && (
-                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <AnimatedSkull
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onInitiateKick?.(player.id)
-                      }}
-                    />
-                  </div>
-                )}
-              </>
+            {renderPlayerCard(player)}
+            {/* Kick button - appears on hover, positioned BELOW card */}
+            {canKick && (
+              <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <AnimatedSkull
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onInitiateKick?.(player.id)
+                  }}
+                />
+              </div>
             )}
             <span className={`text-xs font-semibold block text-center ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
               {player.name}
@@ -583,29 +584,13 @@ export function PokerTable({
                 Viewer
               </span>
             )}
-            {position === 'bottom' && (
-              <>
-                {/* Kick button - appears on hover, positioned ABOVE card for bottom players */}
-                {canKick && (
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <AnimatedSkull
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onInitiateKick?.(player.id)
-                      }}
-                    />
-                  </div>
-                )}
-                {renderPlayerCard(player)}
-              </>
-            )}
           </div>
         </PlayerPopover>
       </motion.div>
     )
   }
 
-  // Left/Right players
+  // Left/Right players - now with name under card like vertical players
   const renderHorizontalPlayer = (player: Player, position: 'left' | 'right') => {
     const isCurrentPlayer = player.name === currentPlayerName
     const isViewer = player.is_viewer
@@ -616,68 +601,32 @@ export function PokerTable({
         key={player.id}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="flex items-center gap-2 relative group"
+        className="relative group w-full flex justify-center"
       >
         <PlayerPopover
-          placement={position}
+          placement="top"
           onReact={(emoji, isImage, imageUrl) => handleReact(emoji, player.id, isImage, imageUrl)}
         >
-          <div className="flex items-center gap-2 relative">
-            {position === 'left' && (
-              <>
-                <div className="flex flex-col items-end">
-                  <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
-                    {player.name}
-                  </span>
-                  {isViewer && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">
-                      Viewer
-                    </span>
-                  )}
-                </div>
-                <div className="relative">
-                  {renderPlayerCard(player)}
-                  {/* Kick button - appears on hover, positioned below card */}
-                  {canKick && (
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <AnimatedSkull
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onInitiateKick?.(player.id)
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </>
+          <div className="flex flex-col items-center gap-1 relative">
+            {renderPlayerCard(player)}
+            {/* Kick button - appears on hover, positioned below card */}
+            {canKick && (
+              <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <AnimatedSkull
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onInitiateKick?.(player.id)
+                  }}
+                />
+              </div>
             )}
-            {position === 'right' && (
-              <>
-                <div className="relative">
-                  {renderPlayerCard(player)}
-                  {/* Kick button - appears on hover, positioned below card */}
-                  {canKick && (
-                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <AnimatedSkull
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onInitiateKick?.(player.id)
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className={`text-xs font-semibold ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
-                    {player.name}
-                  </span>
-                  {isViewer && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">
-                      Viewer
-                    </span>
-                  )}
-                </div>
-              </>
+            <span className={`text-xs font-semibold text-center ${isCurrentPlayer ? 'text-primary' : 'text-neutral'}`}>
+              {player.name}
+            </span>
+            {isViewer && (
+              <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">
+                Viewer
+              </span>
             )}
           </div>
         </PlayerPopover>
@@ -755,78 +704,107 @@ export function PokerTable({
     <>
       <FlyingReactions reactions={flyingReactions} />
 
-      <div className="w-full max-w-4xl mx-auto py-4">
-        {/* Centered layout: top players, center table, bottom players */}
-        <div className="flex flex-col items-center gap-4">
+      <div className="w-full max-w-6xl mx-auto py-4">
+        {/* Grid layout: left side | center (top/table/bottom) | right side */}
+        <div className="flex items-center justify-center gap-2 sm:gap-4">
+          
+          {/* Left column - fixed width, centered content */}
+          {leftPlayers.length > 0 && (
+            <div className="hidden sm:flex flex-col justify-center gap-4 w-[80px] items-center">
+              {leftPlayers.map(p => renderHorizontalPlayer(p, 'left'))}
+            </div>
+          )}
 
-          {/* Top row - all players centered */}
-          <div className="flex justify-center gap-3 sm:gap-6 md:gap-8">
-            {topPlayers.map(p => renderVerticalPlayer(p, 'top'))}
-          </div>
+          {/* Center column - top, table, bottom */}
+          <div className="flex flex-col items-center gap-4">
+            {/* Top row */}
+            <div className="flex justify-center gap-2 sm:gap-6 md:gap-8">
+              {topPlayers.map(p => renderVerticalPlayer(p, 'top'))}
+            </div>
 
-          {/* Central table - centered */}
-          <div className="w-full max-w-lg md:max-w-xl min-h-[160px] sm:min-h-[200px] md:min-h-[240px] rounded-xl sm:rounded-2xl bg-slate-100 border border-slate-200 shadow-sm flex flex-col items-center justify-center px-6 py-8 sm:px-8 sm:py-10">
-            {!currentIssueId ? (
-              <div className="text-center">
-                <p className="text-neutral font-medium text-sm mb-1">No task selected</p>
-                <p className="text-neutral text-xs">Add a task to start your first vote</p>
-              </div>
-            ) : currentVotes.length === 0 ? (
-              <p className="text-neutral font-medium text-sm">Waiting for everyone to vote...</p>
-            ) : !isRevealed ? (
-              <div className="flex flex-col items-center gap-4">
-                <p className="text-neutral font-medium text-sm mb-2">Votes submitted</p>
-                {onReveal && (
-                  <button
-                    onClick={onReveal}
-                    className="px-6 py-2.5 bg-primary hover:bg-blue-600 rounded text-white font-medium transition-colors shadow-md"
-                    title="Reveal all votes"
-                  >
-                    Reveal Votes ({currentVotes.length}/{totalPlayers})
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4">
-                {renderVoteDistribution()}
-                {/* Vote changed indicator */}
-                {currentIssueId && voteChangesAfterReveal?.[currentIssueId] && voteChangesAfterReveal[currentIssueId].size > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-light text-primary rounded-full text-xs font-medium"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Votes updated after reveal
-                  </motion.div>
-                )}
-                {onResetVotes && onNextIssue && (
-                  <div className="flex gap-3 mt-4">
+            {/* Central table */}
+            <div className="w-full max-w-lg md:max-w-xl min-h-[160px] sm:min-h-[200px] md:min-h-[240px] rounded-xl sm:rounded-2xl bg-slate-100 border border-slate-200 shadow-sm flex flex-col items-center justify-center px-6 py-8 sm:px-8 sm:py-10">
+              {!currentIssueId ? (
+                <div className="text-center">
+                  <p className="text-neutral font-medium text-sm mb-1">No task selected</p>
+                  <p className="text-neutral text-xs">Add a task to start your first vote</p>
+                </div>
+              ) : currentVotes.length === 0 ? (
+                <p className="text-neutral font-medium text-sm">Waiting for everyone to vote...</p>
+              ) : !isRevealed ? (
+                <div className="flex flex-col items-center gap-4">
+                  <p className="text-neutral font-medium text-sm mb-2">Votes submitted</p>
+                  {onReveal && (
                     <button
-                      onClick={onResetVotes}
-                      className="px-5 py-2 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-medium transition-colors"
+                      onClick={onReveal}
+                      className="px-6 py-2.5 bg-primary hover:bg-blue-600 rounded text-white font-medium transition-colors shadow-md"
+                      title="Reveal all votes"
                     >
-                      Revote
+                      Reveal Votes ({currentVotes.length}/{totalPlayers})
                     </button>
-                    <button
-                      onClick={onNextIssue}
-                      className="px-5 py-2 bg-primary hover:bg-blue-600 rounded text-white font-medium transition-colors"
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4">
+                  {renderVoteDistribution()}
+                  {/* Vote changed indicator */}
+                  {currentIssueId && voteChangesAfterReveal?.[currentIssueId] && voteChangesAfterReveal[currentIssueId].size > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-light text-primary rounded-full text-xs font-medium"
                     >
-                      Next Vote
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Votes updated after reveal
+                    </motion.div>
+                  )}
+                  {onResetVotes && onNextIssue && (
+                    <div className="flex gap-3 mt-4">
+                      <button
+                        onClick={onResetVotes}
+                        className="px-5 py-2 bg-neutral-light hover:bg-neutral-200 rounded text-secondary font-medium transition-colors"
+                      >
+                        Revote
+                      </button>
+                      <button
+                        onClick={onNextIssue}
+                        className="px-5 py-2 bg-primary hover:bg-blue-600 rounded text-white font-medium transition-colors"
+                      >
+                        Next Vote
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom row */}
+            <div className="flex justify-center gap-2 sm:gap-6 md:gap-8">
+              {bottomPlayers.map(p => renderVerticalPlayer(p, 'bottom'))}
+            </div>
           </div>
 
-          {/* Bottom row - all players centered */}
-          <div className="flex justify-center gap-3 sm:gap-6 md:gap-8">
-            {bottomPlayers.map(p => renderVerticalPlayer(p, 'bottom'))}
-          </div>
+          {/* Right column - fixed width, centered content */}
+          {rightPlayers.length > 0 && (
+            <div className="hidden sm:flex flex-col justify-center gap-4 w-[80px] items-center">
+              {rightPlayers.map(p => renderHorizontalPlayer(p, 'right'))}
+            </div>
+          )}
         </div>
+
+        {/* Mobile: show side players in bottom row when screen is small */}
+        {leftPlayers.length > 0 && (
+          <div className="flex sm:hidden justify-center gap-2 mt-4">
+            {leftPlayers.map(p => renderHorizontalPlayer(p, 'left'))}
+          </div>
+        )}
+        {rightPlayers.length > 0 && (
+          <div className="flex sm:hidden justify-center gap-2 mt-2">
+            {rightPlayers.map(p => renderHorizontalPlayer(p, 'right'))}
+          </div>
+        )}
       </div>
     </>
   )
