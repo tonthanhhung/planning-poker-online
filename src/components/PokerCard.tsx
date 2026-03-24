@@ -50,19 +50,21 @@ const getCardColorClasses = (value: number | typeof COFFEE_CARD | typeof QUESTIO
 
 // Get static color for deck cards (always show value color)
 const getDeckCardColors = (value: number | typeof COFFEE_CARD | typeof QUESTION_CARD, isSelected: boolean): CardColorScheme => {
+  // Get the base colors for the card value
+  const baseColors = getCardColors(value)
+  
   if (isSelected) {
+    // Keep the base color but add selection styling
     return {
-      bg: 'bg-gradient-to-br from-primary to-blue-600',
-      border: 'border-primary',
-      text: 'text-white',
-      shadow: 'shadow-lg shadow-blue-500/30',
-      gradient: 'from-primary to-blue-600',
+      ...baseColors,
+      // Add a prominent ring/border for selection
+      border: 'border-white ring-4 ring-primary ring-offset-2',
+      shadow: 'shadow-xl shadow-primary/50',
     }
   }
   
   // For deck cards, always show value-based colors
-  const colors = getCardColors(value)
-  return colors
+  return baseColors
 }
 
 export function PokerCard({ 
