@@ -46,23 +46,23 @@ export const CARD_COLOR_MAP: Record<number | typeof COFFEE_CARD | typeof QUESTIO
     shadow: 'shadow-emerald-500/50',
     gradient: 'from-emerald-400 to-emerald-600',
   },
-  // 3 - Teal (moderate small value)
+  // 3 - Lime/Yellow-Green (distinct from teal and cyan)
   3: {
-    bg: 'bg-teal-500',
-    border: 'border-teal-700',
+    bg: 'bg-lime-500',
+    border: 'border-lime-700',
     text: 'text-white',
-    shadow: 'shadow-teal-500/50',
-    gradient: 'from-teal-400 to-teal-600',
+    shadow: 'shadow-lime-500/50',
+    gradient: 'from-lime-400 to-lime-600',
   },
-  // 5 - Cyan (Fibonacci sequence, noticeable)
+  // 5 - Orange/Amber (distinct from yellow and blue)
   5: {
-    bg: 'bg-cyan-500',
-    border: 'border-cyan-700',
+    bg: 'bg-orange-500',
+    border: 'border-orange-700',
     text: 'text-white',
-    shadow: 'shadow-cyan-500/50',
-    gradient: 'from-cyan-400 to-cyan-600',
+    shadow: 'shadow-orange-500/50',
+    gradient: 'from-orange-400 to-orange-600',
   },
-  // 8 - Sky Blue (significant value)
+  // 8 - Sky Blue (keep this as the blue anchor)
   8: {
     bg: 'bg-sky-500',
     border: 'border-sky-700',

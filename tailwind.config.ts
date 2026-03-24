@@ -17,10 +17,10 @@ const config: Config = {
     'bg-green-500', 'bg-green-600', 'from-green-400', 'to-green-600', 'border-green-700',
     // Emerald colors (for 2)
     'bg-emerald-500', 'bg-emerald-600', 'from-emerald-400', 'to-emerald-600', 'border-emerald-700',
-    // Teal colors (for 3)
-    'bg-teal-500', 'bg-teal-600', 'from-teal-400', 'to-teal-600', 'border-teal-700',
-    // Cyan colors (for 5)
-    'bg-cyan-500', 'bg-cyan-600', 'from-cyan-400', 'to-cyan-600', 'border-cyan-700',
+    // Teal colors (for 3) - REPLACED with Lime
+    'bg-lime-500', 'bg-lime-600', 'from-lime-400', 'to-lime-600', 'border-lime-700',
+    // Cyan colors (for 5) - REPLACED with Orange
+    'bg-orange-500', 'bg-orange-600', 'from-orange-400', 'to-orange-600', 'border-orange-700',
     // Sky colors (for 8)
     'bg-sky-500', 'bg-sky-600', 'from-sky-400', 'to-sky-600', 'border-sky-700',
     // Blue colors (for 13)
