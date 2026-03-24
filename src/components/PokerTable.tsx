@@ -601,7 +601,7 @@ export function PokerTable({
         key={player.id}
         initial={{ scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={`relative group w-full ${position === 'left' ? 'flex justify-end' : 'flex justify-start'}`}
+        className="relative group w-full flex justify-center"
       >
         <PlayerPopover
           placement="top"
@@ -708,9 +708,9 @@ export function PokerTable({
         {/* Grid layout: left side | center (top/table/bottom) | right side */}
         <div className="flex items-center justify-center gap-2 sm:gap-4">
           
-          {/* Left column - fixed width, right-aligned content */}
+          {/* Left column - fixed width, centered content */}
           {leftPlayers.length > 0 && (
-            <div className="hidden sm:flex flex-col justify-center gap-4 w-[100px] items-end">
+            <div className="hidden sm:flex flex-col justify-center gap-4 w-[80px] items-center">
               {leftPlayers.map(p => renderHorizontalPlayer(p, 'left'))}
             </div>
           )}
@@ -786,9 +786,9 @@ export function PokerTable({
             </div>
           </div>
 
-          {/* Right column - fixed width, left-aligned content */}
+          {/* Right column - fixed width, centered content */}
           {rightPlayers.length > 0 && (
-            <div className="hidden sm:flex flex-col justify-center gap-4 w-[100px] items-start">
+            <div className="hidden sm:flex flex-col justify-center gap-4 w-[80px] items-center">
               {rightPlayers.map(p => renderHorizontalPlayer(p, 'right'))}
             </div>
           )}
