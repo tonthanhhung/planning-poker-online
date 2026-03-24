@@ -57,8 +57,8 @@ const getDeckCardColors = (value: number | typeof COFFEE_CARD | typeof QUESTION_
     // Keep the base color but add selection styling
     return {
       ...baseColors,
-      // Add a prominent ring/border for selection
-      border: 'border-white ring-4 ring-primary ring-offset-2',
+      // Keep original border and add ring for selection
+      border: `${baseColors.border} ring-4 ring-primary ring-offset-2`,
       shadow: 'shadow-xl shadow-primary/50',
     }
   }
