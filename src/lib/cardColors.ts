@@ -1,5 +1,5 @@
 // Card color mapping for Planning Poker values
-// Each value has a distinct color to help players quickly identify cards
+// Each value has a distinct, vibrant color to help players quickly identify cards
 
 import { COFFEE_CARD, QUESTION_CARD } from '@/types'
 
@@ -11,131 +11,131 @@ export interface CardColorScheme {
   gradient: string
 }
 
-// Color mapping for each card value
-// Using a carefully selected palette that's visually distinct and meaningful
+// Vibrant color mapping for each card value
+// Using saturated colors that are visually distinct
 export const CARD_COLOR_MAP: Record<number | typeof COFFEE_CARD | typeof QUESTION_CARD, CardColorScheme> = {
-  // 0 - Dark slate (represents zero/nothing)
+  // 0 - Dark slate/charcoal (represents zero/nothing)
   0: {
-    bg: 'bg-slate-100',
-    border: 'border-slate-400',
-    text: 'text-slate-700',
-    shadow: 'shadow-slate-200',
-    gradient: 'from-slate-50 to-slate-100',
+    bg: 'bg-slate-500',
+    border: 'border-slate-700',
+    text: 'text-white',
+    shadow: 'shadow-slate-500/50',
+    gradient: 'from-slate-400 to-slate-600',
   },
-  // 0.5 - Light gray (minimal value)
+  // 0.5 - Gray (minimal value)
   0.5: {
-    bg: 'bg-gray-100',
-    border: 'border-gray-400',
-    text: 'text-gray-700',
-    shadow: 'shadow-gray-200',
-    gradient: 'from-gray-50 to-gray-100',
+    bg: 'bg-gray-400',
+    border: 'border-gray-600',
+    text: 'text-white',
+    shadow: 'shadow-gray-500/50',
+    gradient: 'from-gray-300 to-gray-500',
   },
-  // 1 - Soft green (small, starting value)
+  // 1 - Green (small, starting value)
   1: {
-    bg: 'bg-green-100',
-    border: 'border-green-500',
-    text: 'text-green-700',
-    shadow: 'shadow-green-200',
-    gradient: 'from-green-50 to-green-100',
+    bg: 'bg-green-500',
+    border: 'border-green-700',
+    text: 'text-white',
+    shadow: 'shadow-green-500/50',
+    gradient: 'from-green-400 to-green-600',
   },
-  // 2 - Mint (light green, small increment)
+  // 2 - Mint/Emerald (light green, small increment)
   2: {
-    bg: 'bg-emerald-100',
-    border: 'border-emerald-500',
-    text: 'text-emerald-700',
-    shadow: 'shadow-emerald-200',
-    gradient: 'from-emerald-50 to-emerald-100',
+    bg: 'bg-emerald-500',
+    border: 'border-emerald-700',
+    text: 'text-white',
+    shadow: 'shadow-emerald-500/50',
+    gradient: 'from-emerald-400 to-emerald-600',
   },
   // 3 - Teal (moderate small value)
   3: {
-    bg: 'bg-teal-100',
-    border: 'border-teal-500',
-    text: 'text-teal-700',
-    shadow: 'shadow-teal-200',
-    gradient: 'from-teal-50 to-teal-100',
+    bg: 'bg-teal-500',
+    border: 'border-teal-700',
+    text: 'text-white',
+    shadow: 'shadow-teal-500/50',
+    gradient: 'from-teal-400 to-teal-600',
   },
   // 5 - Cyan (Fibonacci sequence, noticeable)
   5: {
-    bg: 'bg-cyan-100',
-    border: 'border-cyan-500',
-    text: 'text-cyan-700',
-    shadow: 'shadow-cyan-200',
-    gradient: 'from-cyan-50 to-cyan-100',
+    bg: 'bg-cyan-500',
+    border: 'border-cyan-700',
+    text: 'text-white',
+    shadow: 'shadow-cyan-500/50',
+    gradient: 'from-cyan-400 to-cyan-600',
   },
-  // 8 - Blue (significant value)
+  // 8 - Sky Blue (significant value)
   8: {
-    bg: 'bg-blue-100',
-    border: 'border-blue-500',
-    text: 'text-blue-700',
-    shadow: 'shadow-blue-200',
-    gradient: 'from-blue-50 to-blue-100',
+    bg: 'bg-sky-500',
+    border: 'border-sky-700',
+    text: 'text-white',
+    shadow: 'shadow-sky-500/50',
+    gradient: 'from-sky-400 to-sky-600',
   },
-  // 13 - Indigo (large value)
+  // 13 - Blue (large value)
   13: {
-    bg: 'bg-indigo-100',
-    border: 'border-indigo-500',
-    text: 'text-indigo-700',
-    shadow: 'shadow-indigo-200',
-    gradient: 'from-indigo-50 to-indigo-100',
+    bg: 'bg-blue-600',
+    border: 'border-blue-800',
+    text: 'text-white',
+    shadow: 'shadow-blue-500/50',
+    gradient: 'from-blue-500 to-blue-700',
   },
-  // 20 - Violet (substantial value)
+  // 20 - Indigo (substantial value)
   20: {
-    bg: 'bg-violet-100',
-    border: 'border-violet-500',
-    text: 'text-violet-700',
-    shadow: 'shadow-violet-200',
-    gradient: 'from-violet-50 to-violet-100',
+    bg: 'bg-indigo-600',
+    border: 'border-indigo-800',
+    text: 'text-white',
+    shadow: 'shadow-indigo-500/50',
+    gradient: 'from-indigo-500 to-indigo-700',
   },
   // 40 - Purple (large value)
   40: {
-    bg: 'bg-purple-100',
-    border: 'border-purple-500',
-    text: 'text-purple-700',
-    shadow: 'shadow-purple-200',
-    gradient: 'from-purple-50 to-purple-100',
+    bg: 'bg-purple-600',
+    border: 'border-purple-800',
+    text: 'text-white',
+    shadow: 'shadow-purple-500/50',
+    gradient: 'from-purple-500 to-purple-700',
   },
   // 100 - Pink/Magenta (maximum value)
   100: {
-    bg: 'bg-fuchsia-100',
-    border: 'border-fuchsia-500',
-    text: 'text-fuchsia-700',
-    shadow: 'shadow-fuchsia-200',
-    gradient: 'from-fuchsia-50 to-fuchsia-100',
+    bg: 'bg-pink-600',
+    border: 'border-pink-800',
+    text: 'text-white',
+    shadow: 'shadow-pink-500/50',
+    gradient: 'from-pink-500 to-pink-700',
   },
   // Coffee card - Amber/Brown
   [COFFEE_CARD]: {
-    bg: 'bg-amber-100',
-    border: 'border-amber-500',
-    text: 'text-amber-800',
-    shadow: 'shadow-amber-200',
-    gradient: 'from-amber-50 to-amber-100',
+    bg: 'bg-amber-600',
+    border: 'border-amber-800',
+    text: 'text-white',
+    shadow: 'shadow-amber-500/50',
+    gradient: 'from-amber-500 to-amber-700',
   },
-  // Question card - Slate/Gray
+  // Question card - Slate
   [QUESTION_CARD]: {
-    bg: 'bg-slate-100',
-    border: 'border-slate-500',
-    text: 'text-slate-700',
-    shadow: 'shadow-slate-200',
-    gradient: 'from-slate-50 to-slate-100',
+    bg: 'bg-slate-600',
+    border: 'border-slate-800',
+    text: 'text-white',
+    shadow: 'shadow-slate-500/50',
+    gradient: 'from-slate-500 to-slate-700',
   },
 }
 
-// Face-down card colors (hidden votes)
+// Face-down card colors (hidden votes) - keep the original blue
 export const FACE_DOWN_CARD_COLORS: CardColorScheme = {
-  bg: 'bg-gradient-to-br from-primary to-blue-700',
-  border: 'border-blue-400',
+  bg: 'bg-gradient-to-br from-blue-600 to-blue-800',
+  border: 'border-blue-500',
   text: 'text-white',
-  shadow: 'shadow-blue-500/30',
-  gradient: 'from-primary to-blue-700',
+  shadow: 'shadow-blue-500/50',
+  gradient: 'from-blue-600 to-blue-800',
 }
 
 // Default card colors (when no specific value)
 export const DEFAULT_CARD_COLORS: CardColorScheme = {
-  bg: 'bg-surface',
-  border: 'border-border',
-  text: 'text-secondary',
-  shadow: 'shadow-sm',
-  gradient: 'from-surface to-surface',
+  bg: 'bg-slate-400',
+  border: 'border-slate-600',
+  text: 'text-white',
+  shadow: 'shadow-slate-500/50',
+  gradient: 'from-slate-300 to-slate-500',
 }
 
 // Helper function to get colors for a card value
@@ -169,7 +169,7 @@ export function getCardColors(value: number | typeof COFFEE_CARD | typeof QUESTI
 // Helper to get Tailwind class string for a card
 export function getCardClassName(value: number | typeof COFFEE_CARD | typeof QUESTION_CARD | null | undefined, isRevealed: boolean = true): string {
   if (!isRevealed) {
-    return 'bg-gradient-to-br from-primary to-blue-700 border-2 border-blue-400'
+    return 'bg-gradient-to-br from-blue-600 to-blue-800 border-2 border-blue-500'
   }
   
   const colors = getCardColors(value)
