@@ -13,6 +13,7 @@ interface PokerCardProps {
   isSelected?: boolean
   isRevealed?: boolean
   isHidden?: boolean
+  variant?: 'default' | 'deck'
   onClick?: () => void
   disabled?: boolean
   size?: 'sm' | 'md' | 'lg'
@@ -47,11 +48,29 @@ const getCardColorClasses = (value: number | typeof COFFEE_CARD | typeof QUESTIO
   return getCardColors(value)
 }
 
+// Get static color for deck cards (always show value color)
+const getDeckCardColors = (value: number | typeof COFFEE_CARD | typeof QUESTION_CARD, isSelected: boolean): CardColorScheme => {
+  if (isSelected) {
+    return {
+      bg: 'bg-gradient-to-br from-primary to-blue-600',
+      border: 'border-primary',
+      text: 'text-white',
+      shadow: 'shadow-lg shadow-blue-500/30',
+      gradient: 'from-primary to-blue-600',
+    }
+  }
+  
+  // For deck cards, always show value-based colors
+  const colors = getCardColors(value)
+  return colors
+}
+
 export function PokerCard({ 
   value, 
   isSelected = false, 
   isRevealed = false, 
   isHidden = false,
+  variant = 'default',
   onClick, 
   disabled = false, 
   size = 'md',
@@ -64,7 +83,9 @@ export function PokerCard({
   }
 
   const displayValue = value === COFFEE_CARD ? COFFEE_CARD : value === QUESTION_CARD ? QUESTION_CARD : value
-  const colors = getCardColorClasses(value, isSelected, isRevealed)
+  const colors = variant === 'deck' 
+    ? getDeckCardColors(value, isSelected)
+    : getCardColorClasses(value, isSelected, isRevealed)
 
   if (isHidden && !isRevealed) {
     return (
@@ -274,7 +295,7 @@ export function PokerCardDeck({
           <PokerCard
             value={value}
             isSelected={selectedValue === value && animatingCard !== value}
-            isRevealed={true}
+            variant="deck"
             onClick={() => handleClick(value)}
             disabled={disabled || animatingCard !== null}
             size="md"
@@ -288,7 +309,7 @@ export function PokerCardDeck({
         <PokerCard
           value={QUESTION_CARD}
           isSelected={selectedValue === QUESTION_CARD && animatingCard !== QUESTION_CARD}
-          isRevealed={true}
+          variant="deck"
           onClick={() => handleClick(QUESTION_CARD)}
           disabled={disabled || animatingCard !== null}
           size="md"
@@ -301,7 +322,7 @@ export function PokerCardDeck({
         <PokerCard
           value={COFFEE_CARD}
           isSelected={selectedValue === COFFEE_CARD && animatingCard !== COFFEE_CARD}
-          isRevealed={true}
+          variant="deck"
           onClick={() => handleClick(COFFEE_CARD)}
           disabled={disabled || animatingCard !== null}
           size="md"
