@@ -5,6 +5,7 @@ import { FlyingReactions, ReactionPicker, type FlyingEmoji } from './Reactions'
 import { AnimatedSkull } from './AnimatedSkull'
 import type { Player } from '@/types'
 import { QUESTION_CARD, COFFEE_CARD } from '@/types'
+import { getCardColors } from '@/lib/cardColors'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Socket } from 'socket.io-client'
 import {
@@ -475,6 +476,10 @@ export function PokerTable({
           return points
         }
         
+        // Get color scheme for the card based on vote value
+        const displayValue = getDisplayValue(playerVote.points)
+        const cardColors = getCardColors(displayValue)
+        
         return (
           <motion.div
             data-player-card={player.id}
@@ -496,19 +501,19 @@ export function PokerTable({
               y: -8,
               transition: { duration: 0.3 }
             }}
-            className="w-[46px] h-[64px] rounded-lg bg-surface border-2 border-primary shadow-md flex items-center justify-center relative group cursor-pointer"
+            className={`w-[46px] h-[64px] rounded-lg bg-gradient-to-br ${cardColors.gradient} border-2 ${cardColors.border} shadow-md flex items-center justify-center relative group cursor-pointer`}
           >
             <motion.span 
-              className="text-lg font-bold text-primary"
+              className={`text-lg font-bold ${cardColors.text}`}
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2, type: 'spring', stiffness: 400 }}
             >
-              {getDisplayValue(playerVote.points)}
+              {displayValue}
             </motion.span>
             {/* Subtle glow effect for revealed cards */}
             <motion.div
-              className="absolute inset-0 rounded-lg border-2 border-primary/30"
+              className={`absolute inset-0 rounded-lg border-2 ${cardColors.border}/30`}
               initial={{ scale: 1, opacity: 0 }}
               animate={{ 
                 scale: [1, 1.2, 1],

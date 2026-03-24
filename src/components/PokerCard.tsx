@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { CARD_VALUES, COFFEE_CARD, QUESTION_CARD } from '@/types'
+import { getCardColors, type CardColorScheme } from '@/lib/cardColors'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -18,67 +19,32 @@ interface PokerCardProps {
   animationState?: CardAnimationState
 }
 
-// Color palette for different card values to add visual variety
-const getCardColor = (value: number | typeof COFFEE_CARD | typeof QUESTION_CARD, isSelected: boolean) => {
+// Get card colors based on value and state
+const getCardColorClasses = (value: number | typeof COFFEE_CARD | typeof QUESTION_CARD, isSelected: boolean, isRevealed: boolean): CardColorScheme => {
+  // Selected state takes precedence
   if (isSelected) {
     return {
       bg: 'bg-gradient-to-br from-primary to-blue-600',
       border: 'border-primary',
       text: 'text-white',
       shadow: 'shadow-lg shadow-blue-500/30',
+      gradient: 'from-primary to-blue-600',
     }
   }
   
-  if (value === COFFEE_CARD) {
+  // Face-down cards (not revealed) use default blue
+  if (!isRevealed) {
     return {
-      bg: 'bg-gradient-to-br from-amber-100 to-amber-50',
-      border: 'border-amber-300',
-      text: 'text-amber-700',
-      shadow: 'shadow-sm',
+      bg: 'bg-gradient-to-br from-primary to-blue-700',
+      border: 'border-blue-400',
+      text: 'text-white',
+      shadow: 'shadow-blue-500/30',
+      gradient: 'from-primary to-blue-700',
     }
   }
   
-  if (value === QUESTION_CARD) {
-    return {
-      bg: 'bg-gradient-to-br from-slate-100 to-slate-50',
-      border: 'border-slate-300',
-      text: 'text-slate-700',
-      shadow: 'shadow-sm',
-    }
-  }
-  
-  // Subtle color coding for different value ranges
-  if (typeof value === 'number') {
-    if (value <= 3) {
-      return {
-        bg: 'bg-gradient-to-br from-green-50 to-emerald-50',
-        border: 'border-green-200',
-        text: 'text-green-700',
-        shadow: 'shadow-sm',
-      }
-    } else if (value <= 13) {
-      return {
-        bg: 'bg-gradient-to-br from-blue-50 to-indigo-50',
-        border: 'border-blue-200',
-        text: 'text-blue-700',
-        shadow: 'shadow-sm',
-      }
-    } else {
-      return {
-        bg: 'bg-gradient-to-br from-purple-50 to-pink-50',
-        border: 'border-purple-200',
-        text: 'text-purple-700',
-        shadow: 'shadow-sm',
-      }
-    }
-  }
-  
-  return {
-    bg: 'bg-surface',
-    border: 'border-border',
-    text: 'text-secondary',
-    shadow: 'shadow-sm',
-  }
+  // Revealed cards use value-based colors
+  return getCardColors(value)
 }
 
 export function PokerCard({ 
@@ -98,7 +64,7 @@ export function PokerCard({
   }
 
   const displayValue = value === COFFEE_CARD ? COFFEE_CARD : value === QUESTION_CARD ? QUESTION_CARD : value
-  const colors = getCardColor(value, isSelected)
+  const colors = getCardColorClasses(value, isSelected, isRevealed)
 
   if (isHidden && !isRevealed) {
     return (
