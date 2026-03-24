@@ -6,6 +6,36 @@ const config: Config = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  // Safelist card color classes to ensure they're included in the build
+  safelist: [
+    // Slate colors (for 0 and ?)
+    'bg-slate-500', 'bg-slate-600', 'from-slate-400', 'to-slate-600', 'from-slate-500', 'to-slate-700',
+    'border-slate-700', 'border-slate-800', 'text-slate-700', 'shadow-slate-500',
+    // Gray colors (for 0.5)
+    'bg-gray-400', 'bg-gray-500', 'from-gray-300', 'to-gray-500', 'border-gray-600',
+    // Green colors (for 1)
+    'bg-green-500', 'bg-green-600', 'from-green-400', 'to-green-600', 'border-green-700',
+    // Emerald colors (for 2)
+    'bg-emerald-500', 'bg-emerald-600', 'from-emerald-400', 'to-emerald-600', 'border-emerald-700',
+    // Teal colors (for 3) - REPLACED with Lime
+    'bg-lime-500', 'bg-lime-600', 'from-lime-400', 'to-lime-600', 'border-lime-700',
+    // Cyan colors (for 5) - REPLACED with Orange
+    'bg-orange-500', 'bg-orange-600', 'from-orange-400', 'to-orange-600', 'border-orange-700',
+    // Sky colors (for 8)
+    'bg-sky-500', 'bg-sky-600', 'from-sky-400', 'to-sky-600', 'border-sky-700',
+    // Blue colors (for 13)
+    'bg-blue-600', 'bg-blue-700', 'from-blue-500', 'to-blue-700', 'border-blue-800',
+    // Indigo colors (for 20)
+    'bg-indigo-600', 'bg-indigo-700', 'from-indigo-500', 'to-indigo-700', 'border-indigo-800',
+    // Purple colors (for 40)
+    'bg-purple-600', 'bg-purple-700', 'from-purple-500', 'to-purple-700', 'border-purple-800',
+    // Pink/Fuchsia colors (for 100)
+    'bg-pink-600', 'bg-pink-700', 'from-pink-500', 'to-pink-700', 'border-pink-800',
+    // Amber colors (for coffee)
+    'bg-amber-600', 'bg-amber-700', 'from-amber-500', 'to-amber-700', 'border-amber-800',
+    // Text colors
+    'text-white',
+  ],
   theme: {
     extend: {
       fontFamily: {
