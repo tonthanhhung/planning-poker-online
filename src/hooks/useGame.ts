@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useSocket } from './useSocket'
 import type { Game, Player, Issue, GameStatus, Vote, PlayerStreakStats, IssueVoteStats, VoteDistribution } from '@/types'
@@ -90,7 +90,6 @@ function calculateVoteDistribution(votes: number[]): VoteDistribution[] {
 
 export function useGame(
   gameId: string | null,
-  playerId: string | null,
   playerName: string
 ): UseGameState & { votes: Record<string, Vote[]>; socket: Socket | null; isConnected: boolean; trackActivity: () => void; isTabActive: boolean } & UseGameActions & UseGameGamification & UseGameSyncState {
   const [game, setGame] = useState<Game | null>(null)
@@ -109,6 +108,13 @@ export function useGame(
     initiatorPlayerName: string
     timeout: number
   } | null>(null)
+  // Ref so socket handlers always read the latest pendingKick without
+  // needing it in the useEffect dependency array (avoids listener teardown
+  // on every kick state change, which could cause votes-updated to be dropped)
+  const pendingKickRef = useRef(pendingKick)
+  useEffect(() => {
+    pendingKickRef.current = pendingKick
+  }, [pendingKick])
   
   // Kicked state - track if current player was kicked
   const [wasKicked, setWasKicked] = useState(false)
@@ -214,7 +220,15 @@ export function useGame(
   }, [allIssueStats])
   
   // Use the shared socket hook
-  const { socket, isConnected, trackActivity, isTabActive } = useSocket(gameId, playerId, playerName)
+  const { socket, isConnected, trackActivity, isTabActive } = useSocket(gameId, playerName)
+
+  // Derive the current player's DB UUID from the fresh players list.
+  // A ref is used so socket-event closures always read the latest value
+  // without needing it in their dependency arrays.
+  const currentPlayerIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    currentPlayerIdRef.current = players.find(p => p.name === playerName)?.id ?? null
+  }, [players, playerName])
 
   // Load initial game data
   const loadGame = useCallback(async () => {
@@ -358,7 +372,7 @@ export function useGame(
     }) => {
       console.log('Kick initiated:', { targetPlayerId, initiatorPlayerName, timeout })
       // Only show notification if this player is the target
-      if (targetPlayerId === playerId) {
+      if (targetPlayerId === currentPlayerIdRef.current) {
         setPendingKick({
           targetPlayerId,
           initiatorPlayerName,
@@ -370,8 +384,7 @@ export function useGame(
     // Kick was rejected by target player
     const handleKickRejected = ({ targetPlayerId }: { targetPlayerId: string; initiatorPlayerId: string; initiatorPlayerName: string }) => {
       console.log('Kick rejected:', { targetPlayerId })
-      // Clear pending kick if it was for this player
-      if (pendingKick?.targetPlayerId === targetPlayerId) {
+      if (pendingKickRef.current?.targetPlayerId === targetPlayerId) {
         setPendingKick(null)
       }
     }
@@ -380,14 +393,12 @@ export function useGame(
     const handlePlayerKicked = ({ playerId: kickedPlayerId }: { playerId: string }) => {
       console.log('Player kicked:', kickedPlayerId)
       // If this player was kicked, show kicked state with rejoin option
-      if (kickedPlayerId === playerId) {
+      if (kickedPlayerId === currentPlayerIdRef.current) {
         setWasKicked(true)
         setError('You have been kicked from the game. Click "Rejoin" to come back.')
       }
-      // Remove player from local state
       setPlayers(prev => prev.filter(p => p.id !== kickedPlayerId))
-      // Clear pending kick if it was for this player
-      if (pendingKick?.targetPlayerId === kickedPlayerId) {
+      if (pendingKickRef.current?.targetPlayerId === kickedPlayerId) {
         setPendingKick(null)
       }
     }
@@ -421,35 +432,35 @@ export function useGame(
       socket.off('kick-rejected', handleKickRejected)
       socket.off('player-kicked', handlePlayerKicked)
     }
-  }, [socket, playerId, pendingKick])
+  }, [socket, playerName])
 
   // Update game status
   const updateGameStatus = useCallback(
     async (status: GameStatus) => {
-      if (!gameId || !socket || !playerId) return
+      if (!gameId || !socket) return
 
       trackActivity()
-      socket.emit('update-game-status', { gameId, status, playerId }, (response: any) => {
+      socket.emit('update-game-status', { gameId, status, playerName }, (response: any) => {
         if (!response.success) {
           console.error('Failed to update game status:', response.error)
         }
       })
     },
-    [gameId, socket, playerId, trackActivity]
+    [gameId, socket, playerName, trackActivity]
   )
 
-  // Submit vote
+  // Submit vote — send playerName; server resolves UUID from DB
   const submitVote = useCallback(
     async (issueId: string, points: number) => {
-      if (!gameId || !playerId || !socket) return
+      if (!gameId || !playerName || !socket) return
 
-      socket.emit('submit-vote', { gameId, issueId, playerId, points }, (response: any) => {
+      socket.emit('submit-vote', { gameId, issueId, playerName, points }, (response: any) => {
         if (!response.success) {
           console.error('Failed to submit vote:', response.error)
         }
       })
     },
-    [gameId, playerId, socket]
+    [gameId, playerName, socket]
   )
 
   // Create issue
@@ -512,29 +523,27 @@ export function useGame(
   // Reset votes
   const resetVotes = useCallback(
     async (issueId: string) => {
-      if (!gameId || !socket || !playerId) return
+      if (!gameId || !socket) return
 
-      // Increment total revotes counter
       setTotalRevotes(prev => prev + 1)
-
       trackActivity()
-      socket.emit('reset-votes', { gameId, issueId, playerId }, (response: any) => {
+      socket.emit('reset-votes', { gameId, issueId, playerName }, (response: any) => {
         if (!response.success) {
           console.error('Failed to reset votes:', response.error)
         }
       })
     },
-    [gameId, socket, playerId, trackActivity]
+    [gameId, socket, playerName, trackActivity]
   )
 
-  // Initiate kick vote on another player
+  // Initiate kick vote on another player — send initiatorPlayerName; server resolves UUID
   const initiateKick = useCallback(
     async (targetPlayerId: string) => {
-      if (!gameId || !socket || !playerId || !playerName) return
+      if (!gameId || !socket || !playerName) return
 
       socket.emit(
         'initiate-kick',
-        { gameId, targetPlayerId, initiatorPlayerId: playerId, initiatorPlayerName: playerName },
+        { gameId, targetPlayerId, initiatorPlayerName: playerName },
         (response: any) => {
           if (!response.success) {
             console.error('Failed to initiate kick:', response.error)
@@ -542,7 +551,7 @@ export function useGame(
         }
       )
     },
-    [gameId, socket, playerId, playerName]
+    [gameId, socket, playerName]
   )
 
   // Reject kick (called when current player clicks reject)

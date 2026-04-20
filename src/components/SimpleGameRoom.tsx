@@ -29,9 +29,9 @@ interface SimpleGameRoomProps {
 }
 
 export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
-  const { playerId, playerName, isInitialized, updateName, syncPlayerId } = usePlayer()
-  const { socket, isConnected, isPlayerActive } = useWebSocketPresence(gameId, playerId, playerName || '')
-  
+  const { playerName, isInitialized, updateName } = usePlayer()
+  const { socket, isConnected, isPlayerActive } = useWebSocketPresence(gameId, playerName || '')
+
   const { 
     game, 
     players, 
@@ -48,7 +48,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
     socket: gameSocket,
     isConnected: isGameSocketConnected,
     votesResetKey,
-  } = useGame(gameId, playerId, playerName || '')
+  } = useGame(gameId, playerName || '')
 
   const [isJoining, setIsJoining] = useState(false)
   const [selectedCard, setSelectedCard] = useState<number | typeof COFFEE_CARD | typeof QUESTION_CARD | null>(null)
@@ -66,8 +66,8 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
   }, [isInitialized, playerName])
 
   const currentPlayer = useMemo(() => {
-    return players.find(p => p.id === playerId) || players.find(p => p.name === playerName) || null
-  }, [players, playerId, playerName])
+    return players.find(p => p.name === playerName) || null
+  }, [players, playerName])
 
   useEffect(() => {
     if (currentPlayer) {
@@ -119,9 +119,10 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
     setIsJoining(true)
     
     try {
+      // Block duplicate names unless it's the stored name (returning user)
       const duplicate = players.find(p => p.name === name)
-      if (duplicate) {
-        alert(`The name "${name}" is already taken. Please choose another name.`)
+      if (duplicate && name !== playerName) {
+        alert(`The name "${name}" is already taken. Please choose a different name.`)
         setIsJoining(false)
         return
       }
@@ -130,7 +131,6 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
         gameSocket.emit('create-player', { gameId, playerName: name, isViewer: false }, (response: any) => {
           if (response.success) {
             updateName(name)
-            syncPlayerId(response.player.id)
             setShowJoinModal(false)
             refreshGame()
           } else {
@@ -147,7 +147,7 @@ export function SimpleGameRoom({ gameId, onToggleMode }: SimpleGameRoomProps) {
   }
 
   const handleCardClick = async (value: number | typeof COFFEE_CARD | typeof QUESTION_CARD) => {
-    if (!playerId || isViewer || isRevealed) return
+    if (!playerName || isViewer || isRevealed) return
 
     const existingPlayer = currentPlayer
     if (!existingPlayer) {

@@ -25,7 +25,6 @@ const TAB_INACTIVE_TIMEOUT = 10 * 60 * 1000
 
 export function useSocket(
   gameId: string | null,
-  playerId: string | null,
   playerName: string
 ): UseSocketReturn {
   const [socket, setSocket] = useState<Socket | null>(null)
@@ -151,15 +150,14 @@ export function useSocket(
     }
   }, [])
 
-  // Join game when we have gameId and playerId
+  // Join game when we have gameId and playerName — no UUID sent to server
   useEffect(() => {
-    if (!socket || !isConnected || !gameId || !playerId) return
+    if (!socket || !isConnected || !gameId || !playerName) return
 
-    console.log(`Joining game ${gameId} as ${playerName} (${playerId})`)
-    
+    console.log(`Joining game ${gameId} as ${playerName}`)
+
     socket.emit('join-game', {
       gameId,
-      playerId,
       playerName,
     }, (response: { success: boolean; error?: string }) => {
       if (response?.success) {
@@ -169,22 +167,20 @@ export function useSocket(
         setError(response?.error || 'Failed to join game')
       }
     })
-  }, [socket, isConnected, gameId, playerId, playerName])
+  }, [socket, isConnected, gameId, playerName])
 
-  // Activity tracking to maintain presence (only on meaningful actions, not periodic pings)
-  // This allows the server to auto-suspend when idle while still tracking active players
+  // Activity tracking — send playerName; server resolves UUID from presence map
   const trackActivity = useCallback(() => {
-    // Don't send activity if tab has been inactive for 10+ minutes
     if (!isTabActive) {
       console.log('Activity tracking paused (tab inactive for 10+ minutes)')
       return
     }
-    
-    if (!socket || !isConnected || !gameId || !playerId) return
-    
+
+    if (!socket || !isConnected || !gameId || !playerName) return
+
     lastActivityTime.current = Date.now()
-    socket.emit('activity', { gameId, playerId })
-  }, [socket, isConnected, gameId, playerId, isTabActive])
+    socket.emit('activity', { gameId, playerName })
+  }, [socket, isConnected, gameId, playerName, isTabActive])
 
   return {
     trackActivity,

@@ -4,6 +4,7 @@ import {
   createGame,
   joinGame,
   getGame,
+  getPlayerByGameAndName,
   submitVote,
   resetVotes,
   updateGameStatus,
@@ -44,20 +45,29 @@ interface PendingKick {
 
 export class PresenceServer {
   private io: SocketIOServer | null = null
+  // Presence keyed by "${gameId}:${playerName}" — stable identity, no stale UUIDs
   private presence: Map<string, PlayerPresence> = new Map()
   // Track last activity time per game (in-memory only, persists during server lifetime)
   private gameActivity: Map<string, number> = new Map()
   // Track pending kicks (targetPlayerId -> PendingKick)
   private pendingKicks: Map<string, PendingKick> = new Map()
+  // Map socketId → { gameId, playerName } for clean disconnect handling
+  private socketPresenceMap: Map<string, { gameId: string; playerName: string }> = new Map()
   // No more periodic check interval - allows server to auto-suspend when idle
   private readonly OFFLINE_THRESHOLD = 60000 // 60 seconds - longer threshold allows auto-suspend
 
-  private updateActivity(playerId: string, gameId: string) {
-    const presence = this.presence.get(playerId)
+  /** Presence key used throughout this class */
+  private presenceKey(gameId: string, playerName: string): string {
+    return `${gameId}:${playerName}`
+  }
+
+  private updateActivityByName(gameId: string, playerName: string) {
+    const key = this.presenceKey(gameId, playerName)
+    const presence = this.presence.get(key)
     if (presence) {
       presence.lastPing = Date.now()
       presence.isOnline = true
-      this.presence.set(playerId, presence)
+      this.presence.set(key, presence)
       // Broadcast presence update only on activity, not on a timer
       this.broadcastPresence(gameId)
     }
@@ -159,43 +169,42 @@ export class PresenceServer {
         }
       })
 
-      // Join a game
-      socket.on('join-game', async ({ gameId, playerId, playerName }, callback) => {
+      // Join a game — client sends playerName only, server resolves UUID from DB
+      socket.on('join-game', async ({ gameId, playerName }, callback) => {
         try {
-          console.log(`Player joining: ${playerName} (${playerId}) to game ${gameId}`)
-          
+          console.log(`Player joining: ${playerName} to game ${gameId}`)
+
           // Check if game is stale and delete if needed
           const wasDeleted = await this.cleanupStaleGame(gameId)
           if (wasDeleted) {
-            callback({ success: false, error: 'Game not found or has expired' })
+            if (callback) callback({ success: false, error: 'Game not found or has expired' })
             return
           }
-          
+
           // Join socket room
           socket.join(gameId)
-          
-          // Update database if player is new
-          if (playerId) {
-            await updatePlayerLastActive(playerId)
-          }
-          
-          // Set up presence
-          const presence: PlayerPresence = {
-            playerId,
+
+          // Track socket → playerName for disconnect cleanup
+          this.socketPresenceMap.set(socket.id, { gameId, playerName })
+
+          // Resolve player UUID from DB (may be null for brand-new users before create-player)
+          const player = await getPlayerByGameAndName(gameId, playerName).catch(() => null)
+          const key = this.presenceKey(gameId, playerName)
+
+          this.presence.set(key, {
+            playerId: player?.id ?? '',
             playerName,
             gameId,
             lastPing: Date.now(),
             isOnline: true,
+          })
+
+          if (player) {
+            await updatePlayerLastActive(player.id)
           }
-          
-          this.presence.set(playerId, presence)
-          
-          // Broadcast presence update
+
           this.broadcastPresence(gameId)
-          
-          // Send confirmation
-          socket.emit('joined-game', { gameId, playerId, playerName })
-          
+          socket.emit('joined-game', { gameId, playerName })
           console.log(`Player ${playerName} joined game ${gameId}`)
           if (callback) callback({ success: true })
         } catch (error) {
@@ -204,36 +213,45 @@ export class PresenceServer {
         }
       })
 
-      // Create player (for new joins)
+      // Create / reconnect player — prevents duplicate names, returns existing row on reconnect
       socket.on('create-player', async ({ gameId, playerName, isViewer }, callback) => {
         try {
           console.log(`Creating player: ${playerName} in game ${gameId}, isViewer: ${isViewer}`)
-          const player = await joinGame(gameId, playerName, isViewer || false)
-          
-          // Broadcast to all clients in game
-          this.io?.to(gameId).emit('player-joined', player)
-          
-          callback({ success: true, player })
+          const { player, isNew } = await joinGame(gameId, playerName, isViewer || false)
+
+          // Update presence with confirmed UUID (join-game may have run first with an empty id)
+          const key = this.presenceKey(gameId, playerName)
+          const existing = this.presence.get(key)
+          this.presence.set(key, {
+            playerId: player.id,
+            playerName,
+            gameId,
+            lastPing: Date.now(),
+            isOnline: existing?.isOnline ?? true,
+          })
+          this.broadcastPresence(gameId)
+
+          if (isNew) {
+            // Broadcast new player to all clients
+            this.io?.to(gameId).emit('player-joined', player)
+          }
+
+          callback({ success: true, player, isNew })
         } catch (error) {
           console.error('Failed to create player:', error)
           callback({ success: false, error: error instanceof Error ? error.message : 'Unknown error' })
         }
       })
 
-      // Update game status - also updates activity
-      socket.on('update-game-status', async ({ gameId, status, playerId }, callback) => {
+      // Update game status — client sends playerName for activity tracking
+      socket.on('update-game-status', async ({ gameId, status, playerName }, callback) => {
         try {
           console.log(`Updating game ${gameId} status to ${status}`)
           const game = await updateGameStatus(gameId, status)
-          
-          // Update activity if playerId provided
-          if (playerId) {
-            this.updateActivity(playerId, gameId)
-          }
-          
-          // Broadcast to all clients in game
+
+          if (playerName) this.updateActivityByName(gameId, playerName)
+
           this.io?.to(gameId).emit('game-updated', game)
-          
           if (callback) callback({ success: true, game })
         } catch (error) {
           console.error('Failed to update game status:', error)
@@ -241,21 +259,23 @@ export class PresenceServer {
         }
       })
 
-      // Submit vote - also updates activity
-      socket.on('submit-vote', async ({ gameId, issueId, playerId, points }, callback) => {
+      // Submit vote — client sends playerName; server resolves UUID from DB
+      socket.on('submit-vote', async ({ gameId, issueId, playerName, points }, callback) => {
         try {
-          console.log(`Player ${playerId} voted ${points} on issue ${issueId}`)
-          const vote = await submitVote(gameId, issueId, playerId, points)
-          
-          // Update activity
-          this.updateActivity(playerId, gameId)
-          
-          // Get updated votes for this issue
+          console.log(`Player ${playerName} voted ${points} on issue ${issueId}`)
+
+          const player = await getPlayerByGameAndName(gameId, playerName)
+          if (!player) {
+            if (callback) callback({ success: false, error: 'Player not found in this game' })
+            return
+          }
+
+          const vote = await submitVote(gameId, issueId, player.id, points)
+          this.updateActivityByName(gameId, playerName)
+
           const votes = await getVotesForIssue(gameId, issueId)
-          
-          // Broadcast to all clients in game
           this.io?.to(gameId).emit('votes-updated', { issueId, votes })
-          
+
           if (callback) callback({ success: true, vote })
         } catch (error) {
           console.error('Failed to submit vote:', error)
@@ -263,20 +283,15 @@ export class PresenceServer {
         }
       })
 
-      // Reset votes - also updates activity
-      socket.on('reset-votes', async ({ gameId, issueId, playerId }, callback) => {
+      // Reset votes — client sends playerName for activity tracking
+      socket.on('reset-votes', async ({ gameId, issueId, playerName }, callback) => {
         try {
           console.log(`Resetting votes for issue ${issueId}`)
           await resetVotes(gameId, issueId)
-          
-          // Update activity if playerId provided
-          if (playerId) {
-            this.updateActivity(playerId, gameId)
-          }
-          
-          // Broadcast to all clients in game
+
+          if (playerName) this.updateActivityByName(gameId, playerName)
+
           this.io?.to(gameId).emit('votes-reset', { issueId })
-          
           if (callback) callback({ success: true })
         } catch (error) {
           console.error('Failed to reset votes:', error)
@@ -284,20 +299,15 @@ export class PresenceServer {
         }
       })
 
-      // Create issue - also updates activity
-      socket.on('create-issue', async ({ gameId, title, description, order, status, playerId }, callback) => {
+      // Create issue — client sends playerName for activity tracking
+      socket.on('create-issue', async ({ gameId, title, description, order, status, playerName }, callback) => {
         try {
           console.log(`Creating issue: ${title} in game ${gameId}`)
           const issue = await createIssue(gameId, title, description, order, status)
-          
-          // Update activity if playerId provided
-          if (playerId) {
-            this.updateActivity(playerId, gameId)
-          }
-          
-          // Broadcast to all clients in game
+
+          if (playerName) this.updateActivityByName(gameId, playerName)
+
           this.io?.to(gameId).emit('issue-created', issue)
-          
           if (callback) callback({ success: true, issue })
         } catch (error) {
           console.error('Failed to create issue:', error)
@@ -305,20 +315,15 @@ export class PresenceServer {
         }
       })
 
-      // Update issue - also updates activity
-      socket.on('update-issue', async ({ issueId, updates, playerId }, callback) => {
+      // Update issue — client sends playerName for activity tracking
+      socket.on('update-issue', async ({ issueId, updates, playerName }, callback) => {
         try {
           console.log(`Updating issue ${issueId}:`, updates)
           const issue = await updateIssue(issueId, updates)
-          
-          // Update activity if playerId provided
-          if (playerId) {
-            this.updateActivity(playerId, issue.game_id)
-          }
-          
-          // Broadcast to all clients in game
+
+          if (playerName) this.updateActivityByName(issue.game_id, playerName)
+
           this.io?.to(issue.game_id).emit('issue-updated', issue)
-          
           if (callback) callback({ success: true, issue })
         } catch (error) {
           console.error('Failed to update issue:', error)
@@ -326,20 +331,15 @@ export class PresenceServer {
         }
       })
 
-      // Delete issue - also updates activity
-      socket.on('delete-issue', async ({ issueId, gameId, playerId }, callback) => {
+      // Delete issue — client sends playerName for activity tracking
+      socket.on('delete-issue', async ({ issueId, gameId, playerName }, callback) => {
         try {
           console.log(`Deleting issue ${issueId}`)
           await deleteIssue(issueId)
-          
-          // Update activity if playerId provided
-          if (playerId) {
-            this.updateActivity(playerId, gameId)
-          }
-          
-          // Broadcast to all clients in game
+
+          if (playerName) this.updateActivityByName(gameId, playerName)
+
           this.io?.to(gameId).emit('issue-deleted', { issueId })
-          
           if (callback) callback({ success: true })
         } catch (error) {
           console.error('Failed to delete issue:', error)
@@ -347,20 +347,15 @@ export class PresenceServer {
         }
       })
 
-      // Set current issue - also updates activity
-      socket.on('set-current-issue', async ({ gameId, issueId, playerId }, callback) => {
+      // Set current issue — client sends playerName for activity tracking
+      socket.on('set-current-issue', async ({ gameId, issueId, playerName }, callback) => {
         try {
           console.log(`Setting current issue ${issueId} for game ${gameId}`)
           const game = await setCurrentIssue(gameId, issueId)
-          
-          // Update activity if playerId provided
-          if (playerId) {
-            this.updateActivity(playerId, gameId)
-          }
-          
-          // Broadcast to all clients in game
+
+          if (playerName) this.updateActivityByName(gameId, playerName)
+
           this.io?.to(gameId).emit('game-updated', game)
-          
           if (callback) callback({ success: true, game })
         } catch (error) {
           console.error('Failed to set current issue:', error)
@@ -368,19 +363,22 @@ export class PresenceServer {
         }
       })
 
-      // Remove player
+      // Remove player — playerId is the correct DB UUID from the players list
       socket.on('remove-player', async ({ playerId, gameId }, callback) => {
         try {
           console.log(`Removing player ${playerId} from game ${gameId}`)
           await removePlayer(playerId)
-          
-          // Remove from presence
-          this.presence.delete(playerId)
+
+          // Remove from presence by matching playerId value
+          for (const [key, pres] of this.presence.entries()) {
+            if (pres.playerId === playerId) {
+              this.presence.delete(key)
+              break
+            }
+          }
           this.broadcastPresence(gameId)
-          
-          // Broadcast to all clients in game
+
           this.io?.to(gameId).emit('player-left', { playerId })
-          
           if (callback) callback({ success: true })
         } catch (error) {
           console.error('Failed to remove player:', error)
@@ -389,14 +387,9 @@ export class PresenceServer {
       })
 
       // Initiate kick vote on another player
-      socket.on('initiate-kick', async ({ gameId, targetPlayerId, initiatorPlayerId, initiatorPlayerName }, callback) => {
+      // initiatorPlayerName comes from the client; targetPlayerId is the UUID from the players list (correct)
+      socket.on('initiate-kick', async ({ gameId, targetPlayerId, initiatorPlayerName }, callback) => {
         try {
-          // Validate initiator is not targeting themselves
-          if (initiatorPlayerId === targetPlayerId) {
-            callback({ success: false, error: 'You cannot kick yourself' })
-            return
-          }
-
           // Check if there's already a pending kick for this player
           if (this.pendingKicks.has(targetPlayerId)) {
             callback({ success: false, error: 'Kick already pending for this player' })
@@ -412,8 +405,8 @@ export class PresenceServer {
 
           const { players } = gameData
 
-          // Check both players exist in this game
-          const initiator = players.find((p: Player) => p.id === initiatorPlayerId)
+          // Resolve initiator UUID from their name
+          const initiator = players.find((p: Player) => p.name === initiatorPlayerName)
           const target = players.find((p: Player) => p.id === targetPlayerId)
 
           if (!initiator) {
@@ -423,6 +416,12 @@ export class PresenceServer {
 
           if (!target) {
             callback({ success: false, error: 'Target player not found' })
+            return
+          }
+
+          // Validate initiator is not targeting themselves
+          if (initiator.id === targetPlayerId) {
+            callback({ success: false, error: 'You cannot kick yourself' })
             return
           }
 
@@ -437,7 +436,7 @@ export class PresenceServer {
           // Store pending kick
           this.pendingKicks.set(targetPlayerId, {
             targetPlayerId,
-            initiatorPlayerId,
+            initiatorPlayerId: initiator.id,
             initiatorPlayerName,
             gameId,
             timeoutId
@@ -446,7 +445,7 @@ export class PresenceServer {
           // Notify the target player
           this.io?.to(gameId).emit('kick-initiated', {
             targetPlayerId,
-            initiatorPlayerId,
+            initiatorPlayerId: initiator.id,
             initiatorPlayerName,
             timeout: KICK_TIMEOUT
           })
@@ -487,25 +486,30 @@ export class PresenceServer {
         }
       })
 
-      // Update player name
-      socket.on('update-player-name', async ({ playerId, newName }, callback) => {
+      // Update player name — playerId still comes from the players list (correct UUID, not localStorage)
+      socket.on('update-player-name', async ({ playerId, gameId: nameGameId, newName }, callback) => {
         try {
           console.log(`Updating player ${playerId} name to: ${newName}`)
           await updatePlayerName(playerId, newName)
-          
-          // Update presence
-          const presence = this.presence.get(playerId)
-          if (presence) {
-            presence.playerName = newName
-            this.presence.set(playerId, presence)
+
+          // Rename the presence key: find the old entry by playerId, move it to new name key
+          for (const [key, pres] of this.presence.entries()) {
+            if (pres.playerId === playerId) {
+              const newKey = this.presenceKey(pres.gameId, newName)
+              this.presence.delete(key)
+              this.presence.set(newKey, { ...pres, playerName: newName })
+              // Update socket presence map if this socket owns it
+              for (const [sid, sp] of this.socketPresenceMap.entries()) {
+                if (sp.gameId === pres.gameId && sp.playerName === pres.playerName) {
+                  this.socketPresenceMap.set(sid, { gameId: pres.gameId, playerName: newName })
+                }
+              }
+              this.broadcastPresence(pres.gameId)
+              this.io?.to(pres.gameId).emit('player-updated', { playerId, newName })
+              break
+            }
           }
-          
-          // Broadcast to all clients in game
-          const gameId = presence?.gameId
-          if (gameId) {
-            this.io?.to(gameId).emit('player-updated', { playerId, newName })
-          }
-          
+
           if (callback) callback({ success: true })
         } catch (error) {
           console.error('Failed to update player name:', error)
@@ -527,86 +531,71 @@ export class PresenceServer {
 
       // === Presence & Animations ===
 
-      // Handle activity (replaces ping - tracks meaningful interactions)
-      socket.on('activity', ({ gameId, playerId }) => {
-        this.updateActivity(playerId, gameId)
+      // Handle activity — client sends playerName instead of playerId
+      socket.on('activity', ({ gameId, playerName }) => {
+        if (playerName) this.updateActivityByName(gameId, playerName)
       })
 
-      // Handle reactions - also updates activity
+      // Handle reactions — already uses playerName for activity lookup
       socket.on('reaction', ({ gameId, emoji, playerName, targetPlayerId, isImage, imageUrl }) => {
         console.log(`Reaction from ${playerName} in game ${gameId}: ${emoji} -> ${targetPlayerId || 'random'}`)
-        // Find playerId from presence map
-        for (const [pid, presence] of this.presence.entries()) {
-          if (presence.playerName === playerName && presence.gameId === gameId) {
-            this.updateActivity(pid, gameId)
-            break
-          }
-        }
-        const room = this.io?.to(gameId)
-        if (room) {
-          room.emit('reaction', { emoji, playerName, targetPlayerId, isImage, imageUrl })
-        }
+        if (playerName) this.updateActivityByName(gameId, playerName)
+        this.io?.to(gameId).emit('reaction', { emoji, playerName, targetPlayerId, isImage, imageUrl })
       })
 
-      // Handle card placement animations - also updates activity
+      // Handle card placement animations — use playerName for activity, keep playerId in broadcast
+      // (playerId here is the correct DB UUID from the players list, not localStorage)
       socket.on('card-placed', ({ gameId, playerId, playerName, cardValue }) => {
-        this.updateActivity(playerId, gameId)
+        if (playerName) this.updateActivityByName(gameId, playerName)
         socket.to(gameId).emit('card-placed', { playerId, playerName, cardValue })
       })
 
-      // Handle vote changes after reveal
+      // Handle vote changes after reveal — playerId is from the players list (correct UUID)
       socket.on('vote-changed-after-reveal', ({ gameId, issueId, playerId }) => {
         console.log(`Vote changed after reveal: player ${playerId} on issue ${issueId} in game ${gameId}`)
-        // Broadcast to all clients in game
         this.io?.to(gameId).emit('vote-changed-after-reveal', { issueId, playerId })
       })
 
-      // Handle disconnect
+      // Handle disconnect — use socketPresenceMap for reliable lookup
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id)
-        
-        // Find the disconnected player's ID
-        let disconnectedPlayerId: string | null = null
-        let disconnectedGameId: string | null = null
-        
-        for (const [playerId, presence] of this.presence.entries()) {
-          if (presence.lastPing < Date.now() - this.OFFLINE_THRESHOLD) {
-            disconnectedPlayerId = playerId
-            disconnectedGameId = presence.gameId
-            presence.isOnline = false
-            this.presence.set(playerId, presence)
-            this.broadcastPresence(presence.gameId)
-          }
-        }
-        
-        // Clear any pending kicks involving the disconnected player
-        if (disconnectedPlayerId) {
-          // Clear pending kick where this player is the target
-          const pendingKickAsTarget = this.pendingKicks.get(disconnectedPlayerId)
-          if (pendingKickAsTarget) {
-            clearTimeout(pendingKickAsTarget.timeoutId)
-            this.pendingKicks.delete(disconnectedPlayerId)
-            console.log(`Cleared pending kick for disconnected player ${disconnectedPlayerId}`)
-            
-            // Notify other players that kick was cancelled due to disconnect
-            this.io?.to(pendingKickAsTarget.gameId).emit('kick-cancelled', {
-              targetPlayerId: disconnectedPlayerId,
-              reason: 'disconnected'
-            })
-          }
-          
-          // Clear pending kicks where this player is the initiator
-          for (const [targetId, kick] of this.pendingKicks.entries()) {
-            if (kick.initiatorPlayerId === disconnectedPlayerId) {
-              clearTimeout(kick.timeoutId)
-              this.pendingKicks.delete(targetId)
-              console.log(`Cleared kick initiated by disconnected player ${disconnectedPlayerId}`)
-              
-              // Notify other players that kick was cancelled
-              this.io?.to(kick.gameId).emit('kick-cancelled', {
-                targetPlayerId: targetId,
-                reason: 'initiator_disconnected'
+
+        const socketData = this.socketPresenceMap.get(socket.id)
+        this.socketPresenceMap.delete(socket.id)
+
+        if (!socketData) return
+
+        const { gameId, playerName } = socketData
+        const key = this.presenceKey(gameId, playerName)
+        const pres = this.presence.get(key)
+        if (pres) {
+          pres.isOnline = false
+          this.presence.set(key, pres)
+          this.broadcastPresence(gameId)
+
+          const disconnectedPlayerId = pres.playerId
+          if (disconnectedPlayerId) {
+            // Clear pending kick where this player is the target
+            const pendingKickAsTarget = this.pendingKicks.get(disconnectedPlayerId)
+            if (pendingKickAsTarget) {
+              clearTimeout(pendingKickAsTarget.timeoutId)
+              this.pendingKicks.delete(disconnectedPlayerId)
+              this.io?.to(pendingKickAsTarget.gameId).emit('kick-cancelled', {
+                targetPlayerId: disconnectedPlayerId,
+                reason: 'disconnected',
               })
+            }
+
+            // Clear pending kicks where this player is the initiator
+            for (const [targetId, kick] of this.pendingKicks.entries()) {
+              if (kick.initiatorPlayerId === disconnectedPlayerId) {
+                clearTimeout(kick.timeoutId)
+                this.pendingKicks.delete(targetId)
+                this.io?.to(kick.gameId).emit('kick-cancelled', {
+                  targetPlayerId: targetId,
+                  reason: 'initiator_disconnected',
+                })
+              }
             }
           }
         }
@@ -621,13 +610,13 @@ export class PresenceServer {
   private checkInactivePlayers() {
     // Only called manually now (e.g., on disconnect), not on a timer
     const now = Date.now()
-    
-    for (const [playerId, presence] of this.presence.entries()) {
+
+    for (const [key, presence] of this.presence.entries()) {
       const timeSinceLastPing = now - presence.lastPing
-      
+
       if (timeSinceLastPing > this.OFFLINE_THRESHOLD && presence.isOnline) {
         presence.isOnline = false
-        this.presence.set(playerId, presence)
+        this.presence.set(key, presence)
         this.broadcastPresence(presence.gameId)
         console.log(`Player ${presence.playerName} marked as offline`)
       }
@@ -648,14 +637,19 @@ export class PresenceServer {
 
       // Remove player from database
       await removePlayer(targetPlayerId)
-      
-      // Remove from presence
-      this.presence.delete(targetPlayerId)
+
+      // Remove from presence — find entry by playerId value
+      for (const [key, pres] of this.presence.entries()) {
+        if (pres.playerId === targetPlayerId) {
+          this.presence.delete(key)
+          break
+        }
+      }
       this.broadcastPresence(gameId)
-      
+
       // Notify all clients that player was kicked
       this.io?.to(gameId).emit('player-kicked', { playerId: targetPlayerId })
-      
+
       console.log(`Player ${targetPlayerId} kicked from game ${gameId}`)
     } catch (error) {
       console.error(`Failed to execute kick for player ${targetPlayerId}:`, error)

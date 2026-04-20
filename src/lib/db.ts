@@ -31,16 +31,37 @@ export async function createGame(name: string, createdBy: string): Promise<Game>
   return result.rows[0]
 }
 
-// Helper function to join a game
-// First player automatically becomes facilitator (is_facilitator = true)
-export async function joinGame(gameId: string, playerName: string, isViewer: boolean = false): Promise<Player> {
+// Look up a player by game + name (the stable identity key in the username-based model)
+export async function getPlayerByGameAndName(gameId: string, name: string): Promise<Player | null> {
+  const result = await getPool().query(
+    'SELECT * FROM players WHERE game_id = $1 AND name = $2 LIMIT 1',
+    [gameId, name]
+  )
+  return result.rows[0] ?? null
+}
+
+// Helper function to join a game.
+// Returns { player, isNew } — if a player with the same name already exists in this game
+// the existing row is returned (reconnection semantics) instead of creating a duplicate.
+// First *new* player automatically becomes facilitator (is_facilitator = true).
+export async function joinGame(
+  gameId: string,
+  playerName: string,
+  isViewer: boolean = false
+): Promise<{ player: Player; isNew: boolean }> {
+  // Reconnection: return the existing player rather than creating a duplicate row
+  const existing = await getPlayerByGameAndName(gameId, playerName)
+  if (existing) {
+    return { player: existing, isNew: false }
+  }
+
   const result = await getPool().query(
     `INSERT INTO players (game_id, name, is_facilitator, is_viewer) 
      VALUES ($1, $2, NOT EXISTS (SELECT 1 FROM players WHERE game_id = $1), $3)
      RETURNING *`,
     [gameId, playerName, isViewer]
   )
-  return result.rows[0]
+  return { player: result.rows[0], isNew: true }
 }
 
 // Helper function to get game with players and issues

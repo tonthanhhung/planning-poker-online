@@ -12,7 +12,6 @@ interface PlayerPresence {
 
 export function useWebSocketPresence(
   gameId: string | null,
-  playerId: string | null,
   playerName: string
 ) {
   const [socket, setSocket] = useState<Socket | null>(null)
@@ -20,9 +19,9 @@ export function useWebSocketPresence(
   const [isConnected, setIsConnected] = useState(false)
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Initialize socket connection
+  // Initialize socket connection — no UUID sent, server resolves from playerName
   useEffect(() => {
-    if (!gameId || !playerId) return
+    if (!gameId || !playerName) return
 
     const socketInstance = io({
       path: '/api/socket',
@@ -32,13 +31,8 @@ export function useWebSocketPresence(
     socketInstance.on('connect', () => {
       console.log('Connected to presence server')
       setIsConnected(true)
-      
-      // Join the game room
-      socketInstance.emit('join-game', {
-        gameId,
-        playerId,
-        playerName,
-      })
+
+      socketInstance.emit('join-game', { gameId, playerName })
     })
 
     socketInstance.on('disconnect', () => {
@@ -60,26 +54,17 @@ export function useWebSocketPresence(
     return () => {
       socketInstance.disconnect()
     }
-  }, [gameId, playerId, playerName])
+  }, [gameId, playerName])
 
-  // Send periodic pings
+  // Periodic pings removed — activity is tracked per meaningful action
+  // (keeping ref cleanup for safety)
   useEffect(() => {
-    if (!socket || !isConnected || !gameId || !playerId) return
-
-    // Send initial ping
-    socket.emit('ping', { gameId, playerId })
-
-    // Set up ping interval (every 5 seconds)
-    pingIntervalRef.current = setInterval(() => {
-      socket.emit('ping', { gameId, playerId })
-    }, 5000)
-
     return () => {
       if (pingIntervalRef.current) {
         clearInterval(pingIntervalRef.current)
       }
     }
-  }, [socket, isConnected, gameId, playerId])
+  }, [])
 
   const isPlayerActive = useCallback(
     (id: string) => {
