@@ -7,10 +7,9 @@ const OFFLINE_THRESHOLD = 60000 // Consider offline after 60 seconds (allows ser
 
 export function useActivePlayers(
   gameId: string | null,
-  playerId: string | null,
   playerName: string
 ) {
-  const { presence, isConnected } = useSocket(gameId, playerId, playerName)
+  const { presence, isConnected } = useSocket(gameId, playerName)
   const [activePlayerIds, setActivePlayerIds] = useState<Set<string>>(new Set())
 
   // Check which players are active based on presence
