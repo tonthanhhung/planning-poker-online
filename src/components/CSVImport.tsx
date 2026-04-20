@@ -12,8 +12,8 @@ interface CSVImportProps {
 }
 
 export function CSVImport({ gameId, onImportComplete }: CSVImportProps) {
-  const { playerId, playerName } = usePlayer()
-  const { socket } = useWebSocketPresence(gameId, playerId, playerName || '')
+  const { playerName } = usePlayer()
+  const { socket } = useWebSocketPresence(gameId, playerName || '')
   
   const [isOpen, setIsOpen] = useState(false)
   const [csvText, setCsvText] = useState('')
