@@ -49,6 +49,14 @@ interface PokerTableProps {
     initiatorPlayerName: string
     timeout: number
   } | null
+  // Active kicks for all players (visible to everyone)
+  activeKicks?: Map<string, {
+    targetPlayerId: string
+    targetPlayerName: string
+    initiatorPlayerId: string
+    initiatorPlayerName: string
+    remainingSeconds: number
+  }>
 }
 
 // Floating-UI powered hover popover for emoji reactions
@@ -164,6 +172,7 @@ export function PokerTable({
   totalPlayers = 0,
   onInitiateKick,
   pendingKick,
+  activeKicks,
 }: PokerTableProps) {
   const currentVotes = currentIssueId ? votes[currentIssueId] || [] : []
   const [flyingReactions, setFlyingReactions] = useState<FlyingEmoji[]>([])
@@ -379,6 +388,10 @@ export function PokerTable({
   
   // Render a player's card (face-down or face-up)
   const renderPlayerCard = (player: Player) => {
+    // Check if this player is being kicked
+    const activeKick = activeKicks?.get(player.id)
+    const isBeingKicked = !!activeKick
+    
     // Viewers don't have cards - show a viewer icon instead
     if (player.is_viewer) {
       return (
@@ -389,6 +402,18 @@ export function PokerTable({
           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
           className="w-[46px] h-[64px] rounded-lg bg-purple-50 border-2 border-purple-200 shadow-sm flex items-center justify-center relative group"
         >
+          {/* Kick countdown overlay for viewers */}
+          {isBeingKicked && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/30 backdrop-blur-sm rounded-lg">
+              <motion.span 
+                className="text-2xl font-bold text-red-500"
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ duration: 0.5, repeat: Infinity }}
+              >
+                {activeKick?.remainingSeconds}
+              </motion.span>
+            </div>
+          )}
           <motion.svg 
             className="w-5 h-5 text-purple-400" 
             fill="none" 
@@ -547,6 +572,30 @@ export function PokerTable({
         />
       )
     })()
+
+    // Wrap card content with kick overlay if being kicked
+    if (isBeingKicked) {
+      return (
+        <div className="relative">
+          {cardContent}
+          {/* Kick countdown overlay - blurred backdrop with red number */}
+          <motion.div 
+            className="absolute inset-0 z-20 flex items-center justify-center bg-black/30 backdrop-blur-sm rounded-lg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            <motion.span 
+              className="text-2xl font-bold text-red-500 drop-shadow-lg"
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 0.5, repeat: Infinity }}
+            >
+              {activeKick?.remainingSeconds}
+            </motion.span>
+          </motion.div>
+        </div>
+      )
+    }
 
     return cardContent
   }

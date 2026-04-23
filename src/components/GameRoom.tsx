@@ -72,6 +72,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
     rejectKick,
     pendingKick,
     setPendingKick,
+    activeKicks,
     wasKicked,
     setWasKicked,
   } = useGame(gameId, playerName || '')
@@ -767,7 +768,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
             transition={{ delay: 0.3 }}
             className="text-2xl font-bold text-gray-800 mb-3 relative z-10"
           >
-            You've been kicked!
+            You&apos;ve been kicked!
           </motion.h2>
           
           {/* Message */}
@@ -777,7 +778,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
             transition={{ delay: 0.4 }}
             className="text-gray-600 mb-8 relative z-10"
           >
-            Don't worry, you can rejoin the game anytime.
+            Don&apos;t worry, you can rejoin the game anytime.
           </motion.p>
           
           {/* Rejoin button with satisfying animation */}
@@ -1256,6 +1257,7 @@ export function GameRoom({ gameId, onToggleMode }: GameRoomProps) {
                   totalPlayers={players.length}
                   onInitiateKick={initiateKick}
                   pendingKick={pendingKick}
+                  activeKicks={activeKicks}
                 />
               </div>
 

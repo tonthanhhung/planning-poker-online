@@ -37,10 +37,14 @@ const KICK_TIMEOUT = 30 * 1000
 
 interface PendingKick {
   targetPlayerId: string
+  targetPlayerName: string
   initiatorPlayerId: string
   initiatorPlayerName: string
   gameId: string
   timeoutId: NodeJS.Timeout
+  countdownIntervalId: NodeJS.Timeout | null
+  startedAt: number
+  duration: number
 }
 
 export class PresenceServer {
@@ -425,7 +429,7 @@ export class PresenceServer {
             return
           }
 
-          console.log(`Player ${initiatorPlayerName} initiated kick on player ${targetPlayerId} in game ${gameId}`)
+          console.log(`Player ${initiatorPlayerName} initiated kick on player ${target.name} (${targetPlayerId}) in game ${gameId}`)
 
           // Set up timeout to auto-kick if not rejected
           const timeoutId = setTimeout(async () => {
@@ -433,21 +437,46 @@ export class PresenceServer {
             await this.executeKick(gameId, targetPlayerId)
           }, KICK_TIMEOUT)
 
+          // Set up countdown interval to broadcast remaining time every second
+          const countdownIntervalId = setInterval(() => {
+            const pendingKick = this.pendingKicks.get(targetPlayerId)
+            if (!pendingKick) {
+              clearInterval(countdownIntervalId)
+              return
+            }
+            const elapsed = Date.now() - pendingKick.startedAt
+            const remaining = Math.max(0, Math.ceil((KICK_TIMEOUT - elapsed) / 1000))
+            
+            // Broadcast countdown to all players in the game
+            this.io?.to(gameId).emit('kick-countdown', {
+              targetPlayerId,
+              targetPlayerName: target.name,
+              initiatorPlayerId: initiator.id,
+              initiatorPlayerName,
+              remainingSeconds: remaining,
+            })
+          }, 1000)
+
           // Store pending kick
           this.pendingKicks.set(targetPlayerId, {
             targetPlayerId,
+            targetPlayerName: target.name,
             initiatorPlayerId: initiator.id,
             initiatorPlayerName,
             gameId,
-            timeoutId
+            timeoutId,
+            countdownIntervalId,
+            startedAt: Date.now(),
+            duration: KICK_TIMEOUT,
           })
 
-          // Notify the target player
+          // Initial broadcast to all players
           this.io?.to(gameId).emit('kick-initiated', {
             targetPlayerId,
+            targetPlayerName: target.name,
             initiatorPlayerId: initiator.id,
             initiatorPlayerName,
-            timeout: KICK_TIMEOUT
+            timeout: KICK_TIMEOUT,
           })
 
           callback({ success: true })
@@ -466,8 +495,11 @@ export class PresenceServer {
             return
           }
 
-          // Clear the timeout
+          // Clear the timeout and countdown interval
           clearTimeout(pendingKick.timeoutId)
+          if (pendingKick.countdownIntervalId) {
+            clearInterval(pendingKick.countdownIntervalId)
+          }
           this.pendingKicks.delete(targetPlayerId)
 
           console.log(`Player ${targetPlayerId} rejected kick in game ${gameId}`)
@@ -475,6 +507,7 @@ export class PresenceServer {
           // Notify all players that kick was rejected
           this.io?.to(gameId).emit('kick-rejected', {
             targetPlayerId,
+            targetPlayerName: pendingKick.targetPlayerName,
             initiatorPlayerId: pendingKick.initiatorPlayerId,
             initiatorPlayerName: pendingKick.initiatorPlayerName
           })
@@ -579,9 +612,13 @@ export class PresenceServer {
             const pendingKickAsTarget = this.pendingKicks.get(disconnectedPlayerId)
             if (pendingKickAsTarget) {
               clearTimeout(pendingKickAsTarget.timeoutId)
+              if (pendingKickAsTarget.countdownIntervalId) {
+                clearInterval(pendingKickAsTarget.countdownIntervalId)
+              }
               this.pendingKicks.delete(disconnectedPlayerId)
               this.io?.to(pendingKickAsTarget.gameId).emit('kick-cancelled', {
                 targetPlayerId: disconnectedPlayerId,
+                targetPlayerName: pendingKickAsTarget.targetPlayerName,
                 reason: 'disconnected',
               })
             }
@@ -590,9 +627,13 @@ export class PresenceServer {
             for (const [targetId, kick] of this.pendingKicks.entries()) {
               if (kick.initiatorPlayerId === disconnectedPlayerId) {
                 clearTimeout(kick.timeoutId)
+                if (kick.countdownIntervalId) {
+                  clearInterval(kick.countdownIntervalId)
+                }
                 this.pendingKicks.delete(targetId)
                 this.io?.to(kick.gameId).emit('kick-cancelled', {
                   targetPlayerId: targetId,
+                  targetPlayerName: kick.targetPlayerName,
                   reason: 'initiator_disconnected',
                 })
               }
@@ -630,6 +671,11 @@ export class PresenceServer {
       if (!pendingKick) {
         console.log(`Kick for ${targetPlayerId} was already cancelled, skipping execution`)
         return
+      }
+
+      // Clear the countdown interval
+      if (pendingKick.countdownIntervalId) {
+        clearInterval(pendingKick.countdownIntervalId)
       }
 
       // Remove from pending kicks FIRST to prevent race conditions

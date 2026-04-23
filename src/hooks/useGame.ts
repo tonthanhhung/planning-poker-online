@@ -12,12 +12,20 @@ interface UseGameState {
   currentPlayer: Player | null
   isLoading: boolean
   error: string | null
-  // Kick state
+  // Kick state for current player (if they are the target)
   pendingKick: {
     targetPlayerId: string
     initiatorPlayerName: string
     timeout: number
   } | null
+  // Active kicks for all players (visible to everyone)
+  activeKicks: Map<string, {
+    targetPlayerId: string
+    targetPlayerName: string
+    initiatorPlayerId: string
+    initiatorPlayerName: string
+    remainingSeconds: number
+  }>
   // Kicked state
   wasKicked: boolean
 }
@@ -118,6 +126,15 @@ export function useGame(
   
   // Kicked state - track if current player was kicked
   const [wasKicked, setWasKicked] = useState(false)
+  
+  // Active kicks for all players (visible to everyone) - tracks countdown overlay
+  const [activeKicks, setActiveKicks] = useState<Map<string, {
+    targetPlayerId: string
+    targetPlayerName: string
+    initiatorPlayerId: string
+    initiatorPlayerName: string
+    remainingSeconds: number
+  }>>(new Map())
   
   // Track total revotes across all issues (incremented when votes are reset during voting)
   const [totalRevotes, setTotalRevotes] = useState(() => {
@@ -387,6 +404,61 @@ export function useGame(
       if (pendingKickRef.current?.targetPlayerId === targetPlayerId) {
         setPendingKick(null)
       }
+      // Remove from active kicks so the countdown overlay disappears for everyone
+      setActiveKicks(prev => {
+        const next = new Map(prev)
+        next.delete(targetPlayerId)
+        return next
+      })
+    }
+
+    // Kick countdown update (broadcasted to all players)
+    const handleKickCountdown = ({ 
+      targetPlayerId, 
+      targetPlayerName, 
+      initiatorPlayerId, 
+      initiatorPlayerName, 
+      remainingSeconds 
+    }: { 
+      targetPlayerId: string
+      targetPlayerName: string
+      initiatorPlayerId: string
+      initiatorPlayerName: string
+      remainingSeconds: number
+    }) => {
+      console.log('Kick countdown:', { targetPlayerId, remainingSeconds })
+      setActiveKicks(prev => {
+        const next = new Map(prev)
+        next.set(targetPlayerId, {
+          targetPlayerId,
+          targetPlayerName,
+          initiatorPlayerId,
+          initiatorPlayerName,
+          remainingSeconds,
+        })
+        return next
+      })
+    }
+
+    // Kick was cancelled (e.g., player disconnected)
+    const handleKickCancelled = ({ 
+      targetPlayerId 
+    }: { 
+      targetPlayerId: string 
+      targetPlayerName?: string
+      reason?: string 
+    }) => {
+      console.log('Kick cancelled:', { targetPlayerId })
+      // Clear from active kicks
+      setActiveKicks(prev => {
+        const next = new Map(prev)
+        next.delete(targetPlayerId)
+        return next
+      })
+      // Also clear pending kick if it matches
+      if (pendingKickRef.current?.targetPlayerId === targetPlayerId) {
+        setPendingKick(null)
+      }
     }
 
     // Player was kicked
@@ -401,6 +473,12 @@ export function useGame(
       if (pendingKickRef.current?.targetPlayerId === kickedPlayerId) {
         setPendingKick(null)
       }
+      // Remove from active kicks
+      setActiveKicks(prev => {
+        const next = new Map(prev)
+        next.delete(kickedPlayerId)
+        return next
+      })
     }
 
     socket.on('game-updated', handleGameUpdated)
@@ -416,6 +494,8 @@ export function useGame(
     socket.on('kick-initiated', handleKickInitiated)
     socket.on('kick-rejected', handleKickRejected)
     socket.on('player-kicked', handlePlayerKicked)
+    socket.on('kick-countdown', handleKickCountdown)
+    socket.on('kick-cancelled', handleKickCancelled)
 
     return () => {
       socket.off('game-updated', handleGameUpdated)
@@ -431,6 +511,8 @@ export function useGame(
       socket.off('kick-initiated', handleKickInitiated)
       socket.off('kick-rejected', handleKickRejected)
       socket.off('player-kicked', handlePlayerKicked)
+      socket.off('kick-countdown', handleKickCountdown)
+      socket.off('kick-cancelled', handleKickCancelled)
     }
   }, [socket, playerName])
 
@@ -638,6 +720,7 @@ export function useGame(
     rejectKick,
     pendingKick,
     setPendingKick,
+    activeKicks,
     wasKicked,
     setWasKicked,
     // Gamification stats
